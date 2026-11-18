@@ -926,11 +926,17 @@ document.addEventListener('keydown', e => {
   const el = e.target; if (!el.classList || !el.classList.contains('score')) return;
   if (e.key === 'Enter') { e.preventDefault(); doorNaarVolgende(el); }
 });
-// op een wedstrijd tikken (buiten de vakjes): cursor in het eerste scorevak van die wedstrijd
+// op een wedstrijd tikken (buiten de vakjes): eerst het bovenste scorevak, nog een keer tikken het onderste, en zo om en om
+let vorigVak = null; // laatste scorevak waar de cursor stond (de tik zelf haalt de cursor eruit)
+document.addEventListener('focusout', e => { const el = e.target; if (el.classList && el.classList.contains('score')) vorigVak = { id: el.dataset.score, kant: el.dataset.kant }; });
+document.addEventListener('mousedown', e => { if (e.target.closest('.wed') && !e.target.closest('input, button, select, a, label') && document.activeElement && document.activeElement.classList.contains('score')) e.preventDefault(); });
 document.addEventListener('click', e => {
   if (e.target.closest('input, button, select, a, label')) return;
-  const kaart = e.target.closest('.wed'); if (!kaart) return;
-  const vak = kaart.querySelector('input.score'); if (vak) zetInScore(vak);
+  const kaart = e.target.closest('.wed'); if (!kaart) { vorigVak = null; return; }
+  const vakken = [...kaart.querySelectorAll('input.score')]; if (!vakken.length) return;
+  const act = document.activeElement, actScore = act && act.classList && act.classList.contains('score');
+  const nu = vakken.includes(act) ? act.dataset.kant : !actScore && vorigVak && vorigVak.id === vakken[0].dataset.score ? vorigVak.kant : null;
+  zetInScore(nu === 'a' && vakken[1] ? vakken[1] : vakken[0]);
 });
 // zelf op een vak tikken: de cursor blijft daar en een bestaande score is geselecteerd om te overtypen
 document.addEventListener('focusin', e => {
