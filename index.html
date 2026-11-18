@@ -120,6 +120,16 @@ table.stand td.num, table.stand th.num { text-align: right; font-variant-numeric
 .onderdelen { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .vormkeuze { display: grid; gap: 6px; padding: 8px 10px; background: var(--vlak); border: 1px solid var(--lijn); border-radius: 12px; }
 .vormkeuze select { width: 100%; }
+.od-kaart.od-klap { display: block; align-self: start; padding: 0; }
+.od-klap > summary.od-kop { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; border-radius: 16px; }
+.od-klap > summary.od-kop::-webkit-details-marker { display: none; }
+.od-klap > summary.od-kop:hover { background: var(--vlak); }
+.od-klap > summary h3 { margin: 0; flex: 1 1 auto; min-width: 0; }
+.od-samen { display: flex; flex-direction: column; align-items: flex-end; text-align: right; line-height: 1.25; }
+.od-klap .pijl { flex: none; width: 10px; height: 10px; border-right: 2.5px solid var(--zacht); border-bottom: 2.5px solid var(--zacht); transform: rotate(45deg); margin: 0 4px 4px 2px; transition: transform .15s; }
+.od-klap[open] .pijl { transform: rotate(-135deg); margin: 4px 4px 0 2px; }
+.od-klap[open] > summary.od-kop { border-bottom: 1px solid var(--lijn); border-radius: 16px 16px 0 0; }
+.od-inhoud { display: grid; gap: 8px; padding: 12px; }
 .od-kaart.uit { opacity: .55; background: var(--vlak); border-style: dashed; }
 .od-kaart.uit h3 { color: var(--zacht); }
 .od-kaart { border: 1px solid var(--lijn); border-radius: 16px; padding: 12px; display: grid; gap: 8px; background: var(--bg); align-content: start; }
@@ -1056,7 +1066,8 @@ function rOnderdelen() {
       ${vorm === 'knockout' ? `<label class="klein" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-vopt="${d}" data-optnaam="troost" ${vo.troost ? 'checked' : ''}><span>Troostronde voor de verliezers van ronde 1</span></label>` : ''}
       ${['wisselend', 'koning', 'zwitsers'].includes(vorm) ? `<label class="klein rij" style="gap:6px">Aantal rondes <input type="number" min="1" max="30" value="${vo.rondes}" data-vopt="${d}" data-optnaam="rondes" style="width:70px"></label>` : ''}
       <p class="klein zacht">${VORMEN[vorm].uitleg}</p></div>`;
-    return `<div class="od-kaart"><div class="rij" style="justify-content:space-between"><h3>${chip(d)} ${od.naam}</h3><span class="zacht klein">${lijst.length} ${los ? 'spelers' : 'koppels'}</span></div>
+    // ingeklapt: alleen naam, toernooivorm en aantal; klik om in te stellen en in te schrijven
+    return `<details class="od-kaart od-klap" data-blok="od-${d}" ${blokOpen('od-' + d)}><summary class="od-kop"><h3>${chip(d)} ${od.naam}</h3><span class="od-samen"><span class="klein zacht">${VORMEN[vorm].naam}</span><b class="klein">${lijst.length} ${los ? (lijst.length === 1 ? 'speler' : 'spelers') : (lijst.length === 1 ? 'koppel' : 'koppels')}</b></span><span class="pijl" aria-hidden="true"></span></summary><div class="od-inhoud">
       ${vormKeuze}
       <div class="rij" style="gap:6px">${snel}</div>
       ${vorm === 'poule' || vorm === 'poulefinale' ? `<div class="rij" style="gap:6px"><label class="klein" for="poules-${d}">Poules</label><select id="poules-${d}" data-poules="${d}">${[1, 2, 3, 4].map(n => `<option value="${n}" ${String(S.inst.poules[d]) === String(n) ? 'selected' : ''}>${n === 1 ? '1 poule (iedereen tegen iedereen)' : n + ' poules'}</option>`).join('')}<option value="auto" ${S.inst.poules[d] === 'auto' ? 'selected' : ''}>Automatisch (max ${S.inst.maxPoule} per poule)</option></select></div>` : ''}
@@ -1065,7 +1076,7 @@ function rOnderdelen() {
           <select id="trioK-${d}" aria-label="Koppel">${lijst.filter(k => k.leden.length === 2).map(k => `<option value="${k.id}">${esc(entryNaam(k))}</option>`).join('')}</select>
           <button class="knop klein" type="button" data-actie="trio" data-d="${d}">Als derde toevoegen</button></div>` : ''}</div>` : ''}
       <div>${lijst.map(e => `<div class="deelnemer"><span>${esc(entryNaam(e))}${e.auto ? ' <span class="chip klein">gehusseld</span>' : ''}${e.leden.length > 2 ? ' <span class="chip">drietal</span>' : ''}${invallersIn(e).map(x => ` <span class="chip letop">${esc(naam(x.id))} speelt als ${alsTekst(x.als)}</span>`).join('')}</span><button class="knop klein" type="button" data-actie="uitschrijven" data-id="${e.id}" aria-label="${esc(entryNaam(e))} uitschrijven">×</button></div>`).join('') || '<p class="zacht klein">Nog niemand.</p>'}</div>
-      <div class="rij" style="gap:6px">${toevoegen}<button class="knop klein primair" type="button" data-actie="inschrijven" data-d="${d}">Toevoegen</button></div></div>`;
+      <div class="rij" style="gap:6px">${toevoegen}<button class="knop klein primair" type="button" data-actie="inschrijven" data-d="${d}">Toevoegen</button></div></div></details>`;
   };
   // per groep: mogelijke onderdelen als kaart, niet mogelijke als smalle regel eronder
   const groep = (titel, lijst) => { const aan = lijst.filter(d => mogelijk(d).ok), uit = lijst.filter(d => !mogelijk(d).ok);
