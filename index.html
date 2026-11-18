@@ -169,6 +169,18 @@ tr.rustrij td.tijd { text-align: left; color: var(--accent); background: var(--a
 .afmeld .regel { display: grid; gap: 6px; padding: 8px 0; border-top: 1px solid var(--lijn); }
 .radio { display: flex; gap: 6px; align-items: center; font-size: 14px; }
 .rondes-mobiel { display: none; }
+.rondes-lijst { display: grid; gap: 10px; max-width: 760px; }
+.rondes-lijst input.score, .diagram input.score { width: 54px; padding: 4px; }
+.diagram { display: flex; gap: 10px; overflow-x: auto; align-items: flex-start; padding-bottom: 10px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.dkol { flex: 0 0 270px; scroll-snap-align: start; }
+.dkol.dlunch { flex: 0 0 auto; align-self: stretch; display: flex; } .dkol.dlunch .mrust { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; }
+.dwed { display: grid; gap: 2px; }
+.dwed .mbaan { padding-top: 0; }
+input.score::-webkit-inner-spin-button, input.score::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input.score { -moz-appearance: textfield; appearance: textfield; }
+.schakel { display: inline-flex; border: 1px solid var(--lijn); border-radius: 999px; padding: 3px; background: var(--vlak); gap: 2px; }
+.schakel button { border: 0; background: transparent; border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 14px; cursor: pointer; color: var(--zacht); }
+.schakel button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .ronde { background: var(--vlak); border: 1px solid var(--lijn); border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
 .ronde.grens { border-top: 3px solid var(--accent); }
 .rondekop { display: flex; justify-content: space-between; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -377,7 +389,7 @@ function wijzig() { bewaar(); render(); }
 // Het scherm wordt na elke wijziging opnieuw opgebouwd. Om verspringen te voorkomen onthouden we
 // waar het aangeklikte element op het scherm stond, en zetten we het na het tekenen weer op die plek.
 let laatsteDoel = null;
-const ANKER_ATTR = ['aanwezig', 'alles', 'sexe', 'naam', 'score', 'poules', 'vorm', 'vopt', 'optnaam', 'inst', 'gespeeld', 'id', 'd', 'k', 'actie'];
+const ANKER_ATTR = ['aanwezig', 'alles', 'sexe', 'naam', 'score', 'poules', 'vorm', 'vopt', 'optnaam', 'inst', 'gespeeld', 'id', 'd', 'k', 'actie', 'weergave'];
 function ankerSelector(el) {
   if (!el || !el.dataset) return null;
   if (el.dataset.tab) return null; // navigatie springt bewust naar boven
@@ -893,6 +905,9 @@ function voet(k) {
   return k === 'planning' ? '<div class="voet"><button class="knop" type="button" data-tab="perspeler">Overzicht per speler →</button></div>' : '';
 }
 let planModus = 'plannen';
+// weergave van het uitslagenscherm: 'lijst' (onder elkaar) of 'diagram' (rondes naast elkaar); onthouden op dit apparaat
+let weergave = 'lijst';
+try { weergave = localStorage.getItem('tp-weergave') === 'diagram' ? 'diagram' : 'lijst'; } catch (e) {}
 function render() {
   try { vulVervolg(); } catch (e) { console.error(e); }
   const sel = laatsteDoel && document.body.contains(laatsteDoel) ? ankerSelector(laatsteDoel) : null;
@@ -1226,14 +1241,24 @@ function rPlanning() {
     return lunch + `<div class="ronde ${vanaf != null && s === vanaf ? 'grens' : ''}"><div class="rondekop ${laat ? 'laat' : ''}"><span>${toTijd(tijdVan(s))} – ${toTijd(tijdVan(s) + S.inst.duur)}</span><span class="klein zacht">${laat ? 'na de eindtijd' : ''}</span></div>
       ${ws.map(w => `<div class="mwed"><span class="mbaan">Baan ${w.baan + 1}</span>${kaartVan(w)}</div>`).join('')}</div>`;
   }).join('') || '<p class="leeg">Geen wedstrijden.</p>';
+  // uitslagen als toernooidiagram: elke ronde een kolom, de rondes naast elkaar
+  const diagram = () => { rustGetoond = false; return `<div class="diagram">${slots.map(s => {
+    const lunch = rustRij(s) ? `<div class="dkol dlunch"><div class="mrust">Lunch<br>${toTijd(rb.van)} – ${toTijd(rb.tot)}</div></div>` : '';
+    const ws = W.filter(x => x.slot === s && (!filterSpeler || spelersVan(x).includes(filterSpeler))).sort((a, b) => a.baan - b.baan);
+    if (!ws.length) return lunch;
+    const laat = tijdVan(s) + S.inst.duur > eindM;
+    return lunch + `<div class="dkol ronde ${vanaf != null && s === vanaf ? 'grens' : ''}"><div class="rondekop ${laat ? 'laat' : ''}"><span>${toTijd(tijdVan(s))} – ${toTijd(tijdVan(s) + S.inst.duur)}</span></div>
+      ${ws.map(w => `<div class="dwed"><span class="mbaan">Baan ${w.baan + 1}</span>${kaartVan(w)}</div>`).join('')}</div>`;
+  }).join('')}</div>`; };
   const vast = gespeeld().length;
   const pvorm = d => (S.planning.vorm || {})[d] || 'poule';
   const poules = VOLGORDE.filter(d => W.some(w => w.d === d)).map(d => !['poule', 'poulefinale'].includes(pvorm(d)) ? `<div class="rij" style="gap:6px">${chip(d)} <span class="chip">${VORMEN[pvorm(d)].naam}</span><span class="chip">${W.filter(w => w.d === d).length} wedstrijden</span></div>` : `<div class="rij" style="gap:6px">${chip(d)} ${pvorm(d) === 'poulefinale' ? '<span class="chip">met finale</span> ' : ''}${S.planning.poules[d].map((p, i) => `<span class="chip">${S.planning.poules[d].length > 1 ? 'Poule ' + 'ABCDEFGH'[i] + ': ' : ''}${p.length} ${OD[d].type === 'E' ? 'spelers' : 'koppels'}</span>`).join(' ')}</div>`).join('');
   const totaal = W.filter(w => !vervalt(w)).length;
   if (planModus === 'spelen') return `${banner()}<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Uitslagen</h2><span class="rij" style="gap:8px"><span class="chip ${vast >= totaal ? 'goed' : ''}">${vast} van ${totaal} gespeeld</span><button class="knop klein" type="button" data-tab="stand">${vast >= totaal ? 'Eindstand' : 'Tussenstand'} →</button></span></div>
     ${uitleg('Vul na elke wedstrijd de punten van beide kanten in.', `Na twee cijfers springt de cursor vanzelf naar het volgende lege vakje; een score van één cijfer bevestig je met Enter of Volgende. Tik je zelf op een vakje, dan blijft de cursor daar en kun je de score overtypen. Met beide scores ingevuld telt de wedstrijd als gespeeld; maak je een vakje leeg, dan is hij weer open. De stand per poule zie je bij Stand. Valt er iemand uit, meld die dan af bij stap 1: gespeelde wedstrijden blijven staan en de rest wordt opnieuw ingepland${vanaf != null ? ' (vanaf de groene lijn)' : ''}.`)}
-    <div class="rij"><div class="veld" style="min-width:220px"><label for="filter">Markeer speler</label><select id="filter"><option value="">Iedereen</option>${opties}</select></div></div></div>
-    <div class="schema-box"><table class="schema"><thead><tr><th>Tijd</th>${Array.from({ length: N }, (_, i) => `<th>Baan ${i + 1}</th>`).join('')}</tr></thead><tbody>${rijen}</tbody></table></div><div class="rondes-mobiel">${mobiel}</div>`;
+    <div class="rij" style="align-items:flex-end;justify-content:space-between"><div class="veld" style="min-width:220px"><label for="filter">Markeer speler</label><select id="filter"><option value="">Iedereen</option>${opties}</select></div>
+      <div class="schakel" role="group" aria-label="Weergave"><button type="button" data-weergave="lijst" aria-pressed="${weergave === 'lijst'}">Onder elkaar</button><button type="button" data-weergave="diagram" aria-pressed="${weergave === 'diagram'}">Rondes naast elkaar</button></div></div></div>
+    ${weergave === 'diagram' ? diagram() : `<div class="rondes-lijst">${mobiel}</div>`}`;
   return `${banner()}<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Planning</h2>
       <div class="rij" style="align-items:flex-end"><div class="veld"><label for="p-start">Begintijd</label><input id="p-start" type="time" value="${esc(S.inst.start)}" data-inst="start"></div><div class="veld"><label for="p-eind">Eindtijd</label><input id="p-eind" type="time" value="${esc(S.inst.eind)}" data-inst="eind"></div><div class="veld kort"><label for="p-duur">Wedstrijdduur (min)</label><input id="p-duur" type="number" min="4" max="40" value="${S.inst.duur}" data-inst="duur"></div><div class="veld kort"><label for="p-pauze">Pauze tussen wedstrijden (min)</label><input id="p-pauze" type="number" min="0" max="30" value="${S.inst.pauze}" data-inst="pauze"></div><div class="veld" style="max-width:180px"><label for="p-banen">Beschikbare banen</label><input id="p-banen" type="number" min="1" step="1" value="${S.inst.banen}" data-inst="banen"></div><button class="knop" type="button" data-actie="plan">Opnieuw plannen</button>
       <button class="knop" type="button" data-actie="indelen" ${vast ? 'disabled title="Er zijn al wedstrijden gespeeld"' : ''}>Poules opnieuw indelen</button></div></div>
@@ -1365,6 +1390,7 @@ function rInstellingen() {
 document.addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
   const id = t.dataset.id;
+  if (t.dataset.weergave) { weergave = t.dataset.weergave; try { localStorage.setItem('tp-weergave', weergave); } catch (x) {} render(); return; }
   if (t.dataset.tab) { tab = t.dataset.tab; afmeldId = null; render(); window.scrollTo(0, 0); return; }
   switch (t.dataset.actie) {
     case 'plan': {
