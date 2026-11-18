@@ -280,6 +280,7 @@ main { padding-top: 10px; }
 }
 /* iPhone zoomt in bij invoervelden kleiner dan 16px: op telefoons en tablets daarom altijd minstens 16px */
 @media (max-width: 640px), (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
+.wed:has(input.score) { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -924,6 +925,12 @@ document.addEventListener('input', e => {
 document.addEventListener('keydown', e => {
   const el = e.target; if (!el.classList || !el.classList.contains('score')) return;
   if (e.key === 'Enter') { e.preventDefault(); doorNaarVolgende(el); }
+});
+// op een wedstrijd tikken (buiten de vakjes): cursor in het eerste scorevak van die wedstrijd
+document.addEventListener('click', e => {
+  if (e.target.closest('input, button, select, a, label')) return;
+  const kaart = e.target.closest('.wed'); if (!kaart) return;
+  const vak = kaart.querySelector('input.score'); if (vak) zetInScore(vak);
 });
 // zelf op een vak tikken: de cursor blijft daar en een bestaande score is geselecteerd om te overtypen
 document.addEventListener('focusin', e => {
