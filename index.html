@@ -302,10 +302,14 @@ const chip = d => `<span class="chip od od-${d}">${d}</span>`;
 
 // ---------- toestand ----------
 const leeg = () => ({ inst: kloon(STANDAARD), spelers: [], entries: {}, planning: null, stappen: {} });
-// Voorbeeldlijst voor wie de planner voor het eerst opent (verzonnen namen). Wijzigingen worden daarna in de eigen browser bewaard.
+// Standaardlijst voor wie de planner voor het eerst opent. Wijzigingen worden daarna in de eigen browser bewaard.
 const VOORBEELD = [
-  ['Bas', 'H'], ['Daan', 'H'], ['Erik', 'H'], ['Gijs', 'H'], ['Jeroen', 'H'], ['Koen', 'H'], ['Mark', 'H'], ['Niels', 'H'], ['Pieter', 'H'], ['Rob', 'H'],
-  ['Anouk', 'D'], ['Eva', 'D'], ['Femke', 'D'], ['Ilse', 'D'], ['Karin', 'D'], ['Lotte', 'D'], ['Marloes', 'D'], ['Nina', 'D'], ['Sanne', 'D'], ['Wendy', 'D']];
+  ['Dave den Hartog', 'H'], ['Patrick Tukker', 'H'], ['Jos de Ruiter', 'H'], ['Mik Witte', 'H'], ['Trea van Galen', 'D'],
+  ['Inger Goos', 'D'], ['Karien van der Wekken', 'D'], ['Ilona van Woudenberg', 'D'], ['Anja Broekhuizen', 'D'], ['Martine Clemens', 'D'],
+  ['Rob den Hartog', 'H'], ['Perry Vergeer', 'H'], ['Marco van Galen', 'H'], ['Sylvian Tukker', 'H'], ['Marjo Roos', 'D'],
+  ['speler 16', 'H'], ['speler 17', 'H'], ['speler 18', 'H'], ['speler 19', 'H'], ['speler 20', 'H'],
+  ['speler 21', 'H'], ['speler 22', 'H'], ['speler 23', 'D'], ['speler 24', 'D'], ['speler 25', 'D'],
+  ['speler 26', 'D'], ['speler 27', 'D'], ['speler 28', 'D']];
 const voorbeeld = () => ({ ...leeg(), spelers: VOORBEELD.map(([n, sexe], i) => ({ id: 'v' + i + uid('').slice(-5), naam: n, sexe, afwezig: false })) });
 let S = voorbeeld();
 let allesVraag = null;
@@ -1305,7 +1309,7 @@ function rInstellingen() {
   </div>
   <label class="rij" style="gap:8px;font-weight:600"><input type="checkbox" data-inst="bijhouden" ${i.bijhouden ? 'checked' : ''}> Uitslagen bijhouden</label>
   <p class="klein zacht">Gespeelde wedstrijden blijven bij opnieuw plannen op hun plek staan. Instellingen gelden pas na Opnieuw plannen.</p>
-  <div class="rij"><button class="knop klein" type="button" data-actie="voorbeeld">Voorbeeldspelers terugzetten</button><button class="knop gevaar" type="button" data-actie="wis">Alles wissen</button><span class="klein zacht" id="wisTekst"></span></div></div>`;
+  <div class="rij"><button class="knop klein" type="button" data-actie="voorbeeld">Standaardlijst spelers terugzetten</button><button class="knop gevaar" type="button" data-actie="wis">Alles wissen</button><span class="klein zacht" id="wisTekst"></span></div></div>`;
 }
 
 // ---------- interactie ----------
@@ -1383,8 +1387,8 @@ document.addEventListener('click', e => {
       wijzig(); break;
     }
     case 'voorbeeld':
-      if (t.dataset.zeker) { S = voorbeeld(); afmeldId = null; filterSpeler = ''; overzichtSpeler = ''; tab = 'spelers'; wijzig(); window.scrollTo(0, 0); toast(`Voorbeeldlijst met ${VOORBEELD.length} spelers teruggezet`); }
-      else { t.dataset.zeker = '1'; t.textContent = 'Klik nogmaals: alles vervangen door de voorbeeldlijst'; }
+      if (t.dataset.zeker) { S = voorbeeld(); afmeldId = null; filterSpeler = ''; overzichtSpeler = ''; tab = 'spelers'; wijzig(); window.scrollTo(0, 0); toast(`Standaardlijst met ${VOORBEELD.length} spelers teruggezet`); }
+      else { t.dataset.zeker = '1'; t.textContent = 'Klik nogmaals: alles vervangen door de standaardlijst'; }
       break;
     case 'wis':
       if (t.dataset.zeker) { S = leeg(); S.stappen = {}; afmeldId = null; tab = 'spelers'; wijzig(); }

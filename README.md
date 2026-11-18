@@ -35,4 +35,4 @@ Wedstrijden zijn op tijd; de stand na afloop van de tijd telt. Bij knock-out en 
 
 ## Opslag
 
-Buiten claude.ai worden de gegevens alleen in de eigen browser bewaard (localStorage). Wie de planner voor het eerst opent, begint met een voorbeeldlijst van 20 spelers (10 heren, 10 dames, verzonnen namen). Wijzigingen en aanvullingen worden daarna in de eigen browser bewaard. Via Instellingen → "Voorbeeldspelers terugzetten" begin je opnieuw met de voorbeeldlijst. Een andere opslag (back-up of online database) staat op de lijst met verbeterpunten.
+Buiten claude.ai worden de gegevens alleen in de eigen browser bewaard (localStorage). Wie de planner voor het eerst opent, begint met een standaardlijst van 28 clubleden. Wijzigingen en aanvullingen worden daarna in de eigen browser bewaard. Via Instellingen → "Standaardlijst spelers terugzetten" begin je opnieuw met die lijst. Een andere opslag (back-up of online database) staat op de lijst met verbeterpunten.
