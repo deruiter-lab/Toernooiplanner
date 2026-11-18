@@ -315,6 +315,12 @@ main { padding-top: 10px; }
 .iteller { display: flex; flex-wrap: wrap; gap: 6px 14px; border: 1px solid var(--lijn); border-radius: 10px; padding: 6px 10px; font-variant-numeric: tabular-nums; }
 .letop-blok { border-left: 5px solid var(--oranje); display: grid; gap: 6px; }
 @media (max-width: 640px) { .ikolommen { display: none; } .ilijst { display: block; } .ivoet .rij > .knop { flex: 1 1 auto; } }
+.venster { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; }
+.venster[hidden] { display: none; }
+.venster-doek { position: absolute; inset: 0; background: rgba(20, 20, 60, .55); cursor: pointer; }
+.venster-kader { position: relative; background: var(--bg); border-radius: 18px; padding: 20px; max-width: 440px; width: 100%; display: grid; gap: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.venster-kader h2 { margin: 0; } .venster-kader p { margin: 0; line-height: 1.5; }
+body.venster-open { overflow: hidden; }
 </style>
 </head>
 <body>
@@ -327,6 +333,7 @@ main { padding-top: 10px; }
 </header>
 <main class="wrap" id="inhoud"></main>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="venster" class="venster" hidden></div>
 <script>
 (() => {
 const OD = {
@@ -384,6 +391,17 @@ let db = null, timer = null;
 const DOC = 'basis/staat';
 function zetStatus(t, ok) { const el = $('#opslag'); el.textContent = t; el.classList.toggle('opslag-ok', !!ok); }
 const OPSLAG_ONLINE = 'Automatisch opgeslagen ✓', OPSLAG_LOKAAL = 'Opgeslagen in deze browser ✓';
+// bevestigingsvenster (pop-up) in de pagina zelf
+let vraagTerug = null;
+function vraag({ titel, tekst, ja, nee, gevaar, actie }) {
+  const v = $('#venster'); vraagTerug = document.activeElement;
+  v.innerHTML = `<div class="venster-doek" data-actie="vraagNee"></div><div class="venster-kader" role="dialog" aria-modal="true" aria-labelledby="vraagTitel"><h2 id="vraagTitel">${esc(titel)}</h2><p>${esc(tekst)}</p>
+    <div class="rij" style="justify-content:flex-end;gap:8px"><button class="knop" type="button" data-actie="vraagNee">${esc(nee || 'Annuleren')}</button><button class="knop ${gevaar ? 'gevaar' : 'primair'}" type="button" data-actie="${actie}">${esc(ja)}</button></div></div>`;
+  v.hidden = false; document.body.classList.add('venster-open');
+  setTimeout(() => { const b = v.querySelector('[data-actie="vraagNee"].knop'); if (b) b.focus(); }, 0);
+}
+function sluitVraag() { const v = $('#venster'); v.hidden = true; v.innerHTML = ''; document.body.classList.remove('venster-open'); if (vraagTerug && vraagTerug.focus) try { vraagTerug.focus({ preventScroll: true }); } catch (e) {} }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#venster').hidden) sluitVraag(); });
 // korte bevestiging onderin beeld
 let toastTimer = null;
 function toast(tekst) { const el = $('#toast'); if (!el) return; el.textContent = tekst; el.classList.add('aan'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('aan'), 2600); }
@@ -1153,7 +1171,7 @@ function rSpelers() {
     : n < 2 ? '<div class="melding info"><div><b>Wie is er vandaag?</b> Vink in de lijst hieronder aan wie er is, of voeg nieuwe spelers toe. Is iedereen er, vink dan "Alles selecteren" aan. Met minstens twee aanwezigen ga je verder naar de onderdelen.</div></div>' : '';
   return `${banner()}${afmeldPaneel()}${vinkMelding}
   <div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Spelers</h2><div class="rij">
-      <button class="knop klein" type="button" data-actie="nieuw" ${S.spelers.length ? '' : 'disabled'}>Nieuwe speelavond of toernooi</button></div></div>
+      <button class="knop klein" type="button" data-actie="nieuw" ${S.spelers.length ? '' : 'disabled'}>Nieuw toernooi</button></div></div>
     <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Voor- en achternaam" aria-label="Naam" aria-describedby="spTip" style="flex:1;min-width:200px" autocomplete="off">
       <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D" ${laatsteSexe === 'D' ? 'selected' : ''}>Dame</option></select>
       <button class="knop primair" type="submit">Toevoegen</button></form>
@@ -1163,7 +1181,7 @@ function rSpelers() {
       <div class="rij"><label class="klein" for="bulkSexe">Zonder ,h of ,d erachter:</label><select id="bulkSexe"><option value="H">Heer</option><option value="D">Dame</option></select>
         <button class="knop primair klein" type="button" data-actie="bulk">Spelers toevoegen</button><span class="klein zacht">${esc(bm)}</span></div>
       <p class="klein zacht">Bijvoorbeeld een lijst uit een app-groep. Wie al in de lijst staat, wordt op aanwezig gezet.</p></div></details>
-    ${uitleg('Vink aan wie er is. Een naam of heer/dame wijzig je direct in de lijst.', 'De spelerslijst blijft bewaard. Begin je een nieuwe avond of een nieuw toernooi, klik dan op "Nieuwe speelavond of toernooi": de planning en de inschrijvingen verdwijnen, de spelers blijven, en je vinkt aan wie er is. Haal je het vinkje weg bij iemand die al is ingeschreven, dan kies je per dubbel een vervanger of laat je het koppel vervallen.')}
+    ${uitleg('Vink aan wie er is. Een naam of heer/dame wijzig je direct in de lijst.', 'De spelerslijst blijft bewaard. Begin je een nieuwe avond of een nieuw toernooi, klik dan op "Nieuw toernooi": de planning en de inschrijvingen verdwijnen, de spelers blijven, en je vinkt aan wie er is. Haal je het vinkje weg bij iemand die al is ingeschreven, dan kies je per dubbel een vervanger of laat je het koppel vervallen.')}
     ${allesVraag ? `<div class="melding"><div><b>Iedereen op afwezig zetten?</b> ${allesVraag.n} inschrijving${allesVraag.n === 1 ? '' : 'en'} bij de onderdelen ${allesVraag.n === 1 ? 'vervalt' : 'vervallen'} dan ook.</div>
       <div class="rij"><button class="knop primair" type="button" data-actie="allesUitOk">Ja, iedereen afwezig</button><button class="knop" type="button" data-actie="allesUitNee">Annuleren</button></div></div>` : ''}
     ${lijst.length ? `<label class="alles"><input type="checkbox" data-alles="1" ${n === S.spelers.length ? 'checked' : ''} aria-label="Alle spelers selecteren of deselecteren"><span><b>Alles selecteren</b> <span class="zacht">· ${n} van ${S.spelers.length} aanwezig</span></span></label>` : ''}
@@ -1549,6 +1567,7 @@ function rInstellingen() {
 
 // ---------- interactie ----------
 document.addEventListener('click', e => {
+  if (e.target.closest('.venster-doek')) { sluitVraag(); return; }
   const t = e.target.closest('button'); if (!t) return;
   const id = t.dataset.id;
   if (t.dataset.indeel) { const d = indeelD, pid = t.dataset.indeel; if (!d) return; S.indeling[d] = S.indeling[d] || {};
@@ -1572,8 +1591,12 @@ document.addEventListener('click', e => {
     case 'allesUitNee': allesVraag = null; render(); break;
     case 'alleAanwezig': S.spelers.forEach(p => { p.afwezig = false; }); wijzig(); toast(`Iedereen aanwezig (${S.spelers.length})`); break;
     case 'nieuw':
-      if (t.dataset.zeker) { S.entries = {}; S.indeling = {}; indeelD = null; S.planning = null; S.stappen = {}; S.spelers.forEach(p => { p.afwezig = true; }); afmeldId = null; filterSpeler = ''; overzichtSpeler = ''; tab = 'spelers'; wijzig(); toast('Nieuwe speelavond: vink aan wie er is'); }
-      else { t.dataset.zeker = '1'; t.textContent = 'Klik nogmaals: planning en inschrijvingen wissen'; }
+      vraag({ titel: 'Nieuw toernooi beginnen?', tekst: 'De planning, de inschrijvingen, de poule-indeling en alle uitslagen worden gewist. De spelerslijst blijft bewaard; daarna vink je aan wie er is.', ja: 'Ja, nieuw toernooi', nee: 'Annuleren', gevaar: true, actie: 'nieuwOk' });
+      break;
+    case 'vraagNee': sluitVraag(); break;
+    case 'nieuwOk':
+      sluitVraag();
+      { S.entries = {}; S.indeling = {}; indeelD = null; S.planning = null; S.stappen = {}; S.spelers.forEach(p => { p.afwezig = true; }); afmeldId = null; filterSpeler = ''; overzichtSpeler = ''; tab = 'spelers'; wijzig(); window.scrollTo(0, 0); toast('Nieuw toernooi: vink aan wie er is'); }
       break;
     case 'bulk': {
       const regels = ($('#bulk').value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
