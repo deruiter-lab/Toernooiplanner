@@ -172,6 +172,9 @@ tr.rustrij td.tijd { text-align: left; color: var(--accent); background: var(--a
 .rondes-lijst { display: grid; gap: 10px; max-width: 760px; }
 .rondes-lijst input.score, .diagram input.score { width: 54px; padding: 4px; }
 .diagram { display: flex; gap: 10px; overflow-x: auto; align-items: flex-start; padding-bottom: 10px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.dblokken { display: grid; gap: 22px; }
+.dblok { display: grid; gap: 8px; }
+.dkop { display: flex; gap: 8px; align-items: center; font-family: var(--display); font-size: 17px; }
 .dkol { flex: 0 0 270px; scroll-snap-align: start; }
 .dkol.dlunch { flex: 0 0 auto; align-self: stretch; display: flex; } .dkol.dlunch .mrust { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; }
 .dwed { display: grid; gap: 2px; }
@@ -401,6 +404,8 @@ function ankerSelector(el) {
 const zichtbaar = sel => [...document.querySelectorAll(sel)].find(n => n.offsetParent !== null || n.getClientRects().length);
 document.addEventListener('click', e => { laatsteDoel = e.target.closest('button, input, select, label, summary'); if (laatsteDoel && laatsteDoel.tagName === 'LABEL') laatsteDoel = laatsteDoel.querySelector('input') || laatsteDoel; }, true);
 document.addEventListener('change', e => { laatsteDoel = e.target; }, true);
+// open/dicht direct onthouden bij de klik (het toggle-event komt pas later, na een eventuele hertekening)
+document.addEventListener('click', e => { const sm = e.target.closest('summary'); const dt = sm && sm.parentElement; if (dt && dt.dataset && dt.dataset.blok) { if (dt.open) openBlokken.delete(dt.dataset.blok); else openBlokken.add(dt.dataset.blok); } }, true);
 document.addEventListener('toggle', e => { const k = e.target.dataset && e.target.dataset.blok; if (k) { if (e.target.open) openBlokken.add(k); else openBlokken.delete(k); } }, true);
 
 // ---------- toernooivormen ----------
@@ -418,7 +423,7 @@ const alleLeden = ids => [...new Set(ids.flatMap(id => (S.entries[id] ? S.entrie
 // uitslag: welke kant won? (bij gelijke stand nog onbeslist)
 function winnaarKant(w) { if (w.wo) return w.wo; if (!w.score) return null; return w.score[0] > w.score[1] ? 'a' : w.score[1] > w.score[0] ? 'b' : null; }
 const wedKlaar = w => w.gespeeld || vervalt(w);
-const KO_NAMEN = n => (n === 2 ? 'Finale' : n === 4 ? 'Halve finale' : n === 8 ? 'Kwartfinale' : `Ronde van ${n}`);
+const KO_NAMEN = n => (n === 2 ? 'Finale' : n === 4 ? 'Halve finale' : n === 8 ? 'Kwartfinale' : n === 16 ? 'Achtste finale' : n === 32 ? 'Zestiende finale' : `Ronde van ${n}`);
 // knock-out schema; bronnen in volgorde van plaatsing: {entry} | {poule, plaats} | {verliezer}
 function bouwKO(d, bronnen, poule, voorvoegsel, spelers) {
   const wed = [], eerste = [];
@@ -1242,15 +1247,25 @@ function rPlanning() {
     return lunch + `<div class="ronde ${vanaf != null && s === vanaf ? 'grens' : ''}"><div class="rondekop ${laat ? 'laat' : ''}"><span>${toTijd(tijdVan(s))} – ${toTijd(tijdVan(s) + S.inst.duur)}</span><span class="klein zacht">${laat ? 'na de eindtijd' : ''}</span></div>
       ${ws.map(w => `<div class="mwed"><span class="mbaan">Baan ${w.baan + 1}</span>${kaartVan(w)}</div>`).join('')}</div>`;
   }).join('') || '<p class="leeg">Geen wedstrijden.</p>';
-  // uitslagen als toernooidiagram: elke ronde een kolom, de rondes naast elkaar
-  const diagram = () => { rustGetoond = false; return `<div class="diagram">${slots.map(s => {
-    const lunch = rustRij(s) ? `<div class="dkol dlunch"><div class="mrust">Lunch<br>${toTijd(rb.van)} – ${toTijd(rb.tot)}</div></div>` : '';
-    const ws = W.filter(x => x.slot === s && (!filterSpeler || spelersVan(x).includes(filterSpeler))).sort((a, b) => a.baan - b.baan);
-    if (!ws.length) return lunch;
-    const laat = tijdVan(s) + S.inst.duur > eindM;
-    return lunch + `<div class="dkol ronde ${vanaf != null && s === vanaf ? 'grens' : ''}"><div class="rondekop ${laat ? 'laat' : ''}"><span>${toTijd(tijdVan(s))} – ${toTijd(tijdVan(s) + S.inst.duur)}</span></div>
-      ${ws.map(w => `<div class="dwed"><span class="mbaan">Baan ${w.baan + 1}</span>${kaartVan(w)}</div>`).join('')}</div>`;
-  }).join('')}</div>`; };
+  // uitslagen als toernooidiagram: per onderdeel de speelrondes naast elkaar (poule, achtste/kwart/halve finale, finale; of ronde 1, 2, 3 …)
+  const fase = w => {
+    if (w.fase === 'ko') { const troost = /^Troost/.test(w.label || ''); return { key: `ko-${troost ? 1 : 0}-${w.ronde}`, titel: (w.label || '').replace(/ \d+$/, ''), orde: [1, troost ? 1 : 0, w.ronde] }; }
+    if (w.fase === 'ronde' || w.fase === 'wisselend') return { key: `r-${w.rondeNr}`, titel: `Ronde ${w.rondeNr + 1}`, orde: [1, 0, w.rondeNr] };
+    const pn = Number(String(w.poule || '').split('-').pop()) || 0, meer = ((S.planning.poules || {})[w.d] || []).length > 1;
+    return { key: 'poule-' + pn, titel: meer ? `Poule ${'ABCDEFGH'[pn]}` : 'Poulewedstrijden', orde: [0, 0, pn] };
+  };
+  const nrVan = w => Number(((w.label || '').match(/ (\d+)$/) || [])[1]) || 0; // knock-out in schemavolgorde: 1, 2, 3 …
+  const diagram = () => VOLGORDE.filter(d => W.some(w => w.d === d)).map(d => {
+    const kol = new Map();
+    W.filter(w => w.d === d).forEach(w => { const f = fase(w); if (!kol.has(f.key)) kol.set(f.key, { ...f, w: [] }); kol.get(f.key).w.push(w); });
+    const kolommen = [...kol.values()].sort((a, b) => a.orde[0] - b.orde[0] || a.orde[1] - b.orde[1] || a.orde[2] - b.orde[2]);
+    const pv = (S.planning.vorm || {})[d] || 'poule';
+    return `<div class="dblok"><div class="dkop">${chip(d)} <b>${OD[d].naam}</b> <span class="klein zacht">${VORMEN[pv].naam}</span></div><div class="diagram">${kolommen.map(k => {
+      const ws = k.w.filter(x => !filterSpeler || spelersVan(x).includes(filterSpeler)).sort((a, b) => (k.key.startsWith('ko') ? nrVan(a) - nrVan(b) : 0) || a.slot - b.slot || a.baan - b.baan);
+      return `<div class="dkol ronde"><div class="rondekop"><span>${esc(k.titel)}</span><span class="klein zacht">${k.w.filter(x => x.gespeeld).length}/${k.w.filter(x => !vervalt(x)).length}</span></div>
+        ${ws.map(w => `<div class="dwed"><span class="mbaan">${toTijd(tijdVan(w.slot))} · baan ${w.baan + 1}</span>${kaartVan(w)}</div>`).join('') || '<p class="klein zacht">Geen wedstrijden van deze speler.</p>'}</div>`;
+    }).join('')}</div></div>`;
+  }).join('');
   const vast = gespeeld().length;
   const pvorm = d => (S.planning.vorm || {})[d] || 'poule';
   const poules = VOLGORDE.filter(d => W.some(w => w.d === d)).map(d => !['poule', 'poulefinale'].includes(pvorm(d)) ? `<div class="rij" style="gap:6px">${chip(d)} <span class="chip">${VORMEN[pvorm(d)].naam}</span><span class="chip">${W.filter(w => w.d === d).length} wedstrijden</span></div>` : `<div class="rij" style="gap:6px">${chip(d)} ${pvorm(d) === 'poulefinale' ? '<span class="chip">met finale</span> ' : ''}${S.planning.poules[d].map((p, i) => `<span class="chip">${S.planning.poules[d].length > 1 ? 'Poule ' + 'ABCDEFGH'[i] + ': ' : ''}${p.length} ${OD[d].type === 'E' ? 'spelers' : 'koppels'}</span>`).join(' ')}</div>`).join('');
@@ -1259,7 +1274,7 @@ function rPlanning() {
     ${uitleg('Vul na elke wedstrijd de punten van beide kanten in.', `Na twee cijfers springt de cursor vanzelf naar het volgende lege vakje; een score van één cijfer bevestig je met Enter of Volgende. Tik je zelf op een vakje, dan blijft de cursor daar en kun je de score overtypen. Met beide scores ingevuld telt de wedstrijd als gespeeld; maak je een vakje leeg, dan is hij weer open. De stand per poule zie je bij Stand. Valt er iemand uit, meld die dan af bij stap 1: gespeelde wedstrijden blijven staan en de rest wordt opnieuw ingepland${vanaf != null ? ' (vanaf de groene lijn)' : ''}.`)}
     <div class="rij" style="align-items:flex-end;justify-content:space-between"><div class="veld" style="min-width:220px"><label for="filter">Markeer speler</label><select id="filter"><option value="">Iedereen</option>${opties}</select></div>
       <div class="schakel" role="group" aria-label="Weergave"><button type="button" data-weergave="lijst" aria-pressed="${weergave === 'lijst'}">Onder elkaar</button><button type="button" data-weergave="diagram" aria-pressed="${weergave === 'diagram'}">Rondes naast elkaar</button></div></div></div>
-    ${weergave === 'diagram' ? diagram() : `<div class="rondes-lijst">${mobiel}</div>`}`;
+    ${weergave === 'diagram' ? `<div class="dblokken">${diagram()}</div>` : `<div class="rondes-lijst">${mobiel}</div>`}`;
   return `${banner()}<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Planning</h2>
       <div class="rij" style="align-items:flex-end"><div class="veld"><label for="p-start">Begintijd</label><input id="p-start" type="time" value="${esc(S.inst.start)}" data-inst="start"></div><div class="veld"><label for="p-eind">Eindtijd</label><input id="p-eind" type="time" value="${esc(S.inst.eind)}" data-inst="eind"></div><div class="veld kort"><label for="p-duur">Wedstrijdduur (min)</label><input id="p-duur" type="number" min="4" max="40" value="${S.inst.duur}" data-inst="duur"></div><div class="veld kort"><label for="p-pauze">Pauze tussen wedstrijden (min)</label><input id="p-pauze" type="number" min="0" max="30" value="${S.inst.pauze}" data-inst="pauze"></div><div class="veld" style="max-width:180px"><label for="p-banen">Beschikbare banen</label><input id="p-banen" type="number" min="1" step="1" value="${S.inst.banen}" data-inst="banen"></div><button class="knop" type="button" data-actie="plan">Opnieuw plannen</button>
       <button class="knop" type="button" data-actie="indelen" ${vast ? 'disabled title="Er zijn al wedstrijden gespeeld"' : ''}>Poules opnieuw indelen</button></div></div>
