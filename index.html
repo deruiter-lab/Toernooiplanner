@@ -257,6 +257,7 @@ nav.stappen button[aria-current="step"].stap-klaar .vink { border-color: var(--g
 main { padding-top: 10px; }
 .voet.boven { justify-content: space-between; background: var(--vlak); border: 1px solid var(--lijn); border-radius: 16px; padding: 10px 14px; }
 .voet.boven .klein { flex: 1 1 260px; }
+.voet.boven.melding-ontbreekt { border-left: 5px solid var(--oranje); }
 @media (max-width: 640px) {
   nav.stappen { gap: 4px; }
   nav.stappen button { flex-direction: column; justify-content: flex-start; text-align: center; gap: 4px; padding: 8px 4px 10px; min-height: 84px; border-radius: 12px 12px 0 0; }
@@ -810,8 +811,8 @@ function namenVan(w, kant) {
 
 // ---------- weergave ----------
 // ---------- stappen ----------
-// Een stap is voltooid als hij is bevestigd (of, bij planning en spelen, klaar is) én alle stappen ervoor voltooid zijn.
-// Bevestigen legt een vingerafdruk vast van deze stap en alle stappen ervoor: verandert er later iets, dan is de stap weer open.
+// Een stap is vanzelf voltooid zodra de gegevens kloppen; bevestigen is niet nodig.
+// De planning onthoudt op basis van welke spelers en inschrijvingen hij is gemaakt: verandert er iets, dan is hij verouderd.
 const sigSpelers = () => JSON.stringify(S.spelers.filter(p => !p.afwezig).map(p => p.id + p.sexe).sort());
 const sigTot = k => (k === 'spelers' ? sigSpelers() : sigSpelers() + '#' + handtekening());
 const stappenData = () => (S.stappen = S.stappen || {});
@@ -819,8 +820,8 @@ const aantalAanwezig = () => S.spelers.filter(p => !p.afwezig).length;
 const genoegInschrijvingen = () => VOLGORDE.some(d => actieveEntries(d).length >= (vormVan(d) === 'wisselend' ? 4 : 2));
 function stapKlaar(k) {
   const st = stappenData();
-  if (k === 'spelers') return aantalAanwezig() >= 2 && st.spelers === sigTot('spelers');
-  if (k === 'onderdelen') return stapKlaar('spelers') && genoegInschrijvingen() && st.onderdelen === sigTot('onderdelen');
+  if (k === 'spelers') return aantalAanwezig() >= 2;
+  if (k === 'onderdelen') return stapKlaar('spelers') && genoegInschrijvingen();
   if (k === 'planning') return planningActueel() && (pastInTijd() || toernooiBezig());
   if (k === 'spelen') { if (!stapKlaar('planning')) return false; const w = S.planning.wedstrijden.filter(x => !vervalt(x)); return w.length > 0 && w.every(x => x.gespeeld); }
   return false;
@@ -838,57 +839,45 @@ function stapStatus(k) {
   const W = S.planning ? S.planning.wedstrijden.filter(x => !vervalt(x)) : [];
   const em = eindeMin(), klaarOm = em != null ? `klaar ${toTijd(em)}` : '';
   const gesp = W.filter(x => x.gespeeld).length;
-  if (k === 'spelers') return stapKlaar(k) ? { klaar: true, tekst: `${n} aanwezig · voltooid` }
-    : st.spelers ? { let: true, tekst: `${n} aanwezig · opnieuw bevestigen` } : { tekst: `${n} aanwezig · nog te bevestigen` };
-  if (k === 'onderdelen') return stapKlaar(k) ? { klaar: true, tekst: `${nIns} inschrijving${nIns === 1 ? '' : 'en'} · voltooid` }
-    : !stapKlaar('spelers') ? { tekst: 'Eerst stap 1 voltooien' }
-    : st.onderdelen ? { let: true, tekst: `${nIns} inschrijving${nIns === 1 ? '' : 'en'} · opnieuw bevestigen` } : { tekst: `${nIns} inschrijving${nIns === 1 ? '' : 'en'} · nog te voltooien` };
+  const ins = `${nIns} inschrijving${nIns === 1 ? '' : 'en'}`;
+  if (k === 'spelers') return stapKlaar(k) ? { klaar: true, tekst: `${n} aanwezig` } : { tekst: `${n} aanwezig · minstens 2 nodig` };
+  if (k === 'onderdelen') return stapKlaar(k) ? { klaar: true, tekst: ins }
+    : !stapKlaar('spelers') ? { tekst: 'Eerst spelers aanwezig' } : { tekst: `${ins} · nog te doen` };
   if (k === 'planning') {
     if (stapKlaar(k)) return { klaar: true, tekst: `${W.length} wedstrijden · ${klaarOm}` };
-    if (!stapKlaar('onderdelen')) return { tekst: 'Eerst stap 2 voltooien' };
+    if (!stapKlaar('onderdelen')) return { tekst: 'Eerst inschrijven' };
     if (!S.planning) return { tekst: 'Nog te maken' };
     if (planningActueel() && !pastInTijd()) return { let: true, tekst: `${W.length} wedstrijden · past niet` };
-    return { let: true, tekst: 'Gewijzigd: opnieuw plannen' };
+    return { let: true, tekst: 'Verouderd: opnieuw plannen' };
   }
-  if (!stapKlaar('planning')) return { tekst: 'Eerst stap 3 voltooien' };
-  if (stapKlaar(k)) return { klaar: true, tekst: `${gesp} van ${W.length} gespeeld · voltooid` };
+  if (!stapKlaar('planning')) return { tekst: 'Eerst de planning' };
+  if (stapKlaar(k)) return { klaar: true, tekst: `${gesp} van ${W.length} gespeeld` };
   return pastInTijd() ? { tekst: `${gesp} van ${W.length} gespeeld` } : { let: true, tekst: `${gesp} van ${W.length} gespeeld · loopt uit` };
 }
 function bevestig(k) { stappenData()[k] = sigTot(k); }
 const STAPPEN = () => [['spelers', 'Spelers'], ['onderdelen', 'Onderdelen'], ['planning', 'Planning'], ...(S.inst.bijhouden ? [['spelen', 'Uitslagen']] : [])];
 const EXTRA = [['perspeler', 'Per speler'], ['stand', 'Stand'], ['instellingen', 'Instellingen']];
 const VINK = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-// knop om door te gaan; staat zowel boven als onder de inhoud van een stap
-function vervolg(k) {
-  const lijst = STAPPEN(), i = lijst.findIndex(([x]) => x === k), volgende = lijst[i + 1];
-  if (k === 'spelers') {
-    const n = aantalAanwezig();
-    const hint = !S.spelers.length ? 'Voeg eerst de spelers toe. Daarna kun je verder naar de onderdelen.'
-      : n < 2 ? 'Vink in de lijst aan wie er is, of voeg spelers toe. Met minstens twee aanwezigen kun je verder.' : '';
-    return { hint, knop: `<button class="knop primair groot" type="button" data-actie="bevestig" data-k="spelers" ${n < 2 ? 'disabled' : ''}>${stapKlaar('spelers') ? 'Verder naar onderdelen →' : n < 2 ? 'Eerst spelers aanwezig zetten' : `Aanwezigen kloppen (${n}) → naar onderdelen`}</button>` };
-  }
-  if (k === 'onderdelen') {
-    const kan = stapKlaar('spelers') && genoegInschrijvingen();
-    const hint = !stapKlaar('spelers') ? 'Voltooi eerst stap 1 (Spelers).' : !genoegInschrijvingen() ? 'Schrijf bij minstens één onderdeel twee deelnemers in.' : '';
-    return { hint, knop: `<button class="knop primair groot" type="button" data-actie="bevestig" data-k="onderdelen" ${kan ? '' : 'disabled'}>${stapKlaar('onderdelen') ? 'Verder naar planning →' : 'Inschrijvingen kloppen → naar planning'}</button>` };
-  }
-  if (k === 'planning') {
-    if (planningActueel() && !pastInTijd() && !toernooiBezig()) return { hint: 'De planning past niet binnen de ingestelde tijden. Pas de tijden, de wedstrijdduur, de pauze of het aantal banen aan en plan opnieuw, of schrijf minder deelnemers in.', knop: `<button class="knop primair groot" type="button" disabled>${volgende ? 'Naar uitslagen →' : 'Planning klaar'}</button>` };
-    if (!stapKlaar('planning')) return null;
-    return volgende ? { hint: '', knop: '<button class="knop primair groot" type="button" data-tab="spelen">Planning klopt → naar uitslagen</button>' }
-      : { hint: '', knop: '<button class="knop groot" type="button" data-tab="perspeler">Overzicht per speler →</button>' };
-  }
-  if (k === 'spelen') return stapKlaar('spelen') ? { hint: 'Alle wedstrijden zijn gespeeld.', knop: '<button class="knop primair groot" type="button" data-tab="stand">Naar de eindstand →</button>' } : null;
-  return null;
+// Bovenaan een stap: alleen een melding als er voor deze stap nog iets ontbreekt, met een knop naar de stap waar het moet.
+function ontbreekt(k) {
+  const naar = (t, tekst) => `<div class="voet boven melding-ontbreekt"><span class="klein">${tekst}</span><button class="knop" type="button" data-tab="${t}">Naar ${{ spelers: 'Spelers', onderdelen: 'Onderdelen', planning: 'Planning' }[t]} →</button></div>`;
+  if (k === 'onderdelen' && !stapKlaar('spelers')) return naar('spelers', aantalAanwezig() ? 'Er is nog maar één speler aanwezig. Zet bij Spelers minstens twee spelers aanwezig.' : 'Er zijn nog geen spelers aanwezig. Vink bij Spelers aan wie er is.');
+  if (k === 'planning' && !stapKlaar('onderdelen')) return naar(stapKlaar('spelers') ? 'onderdelen' : 'spelers', stapKlaar('spelers') ? 'Er is nog geen onderdeel met genoeg deelnemers. Schrijf bij Onderdelen spelers in.' : 'Er zijn nog geen twee spelers aanwezig.');
+  if (k === 'planning' && S.planning && !planningActueel())
+    return `<div class="voet boven melding-ontbreekt"><span class="klein">Er is iets gewijzigd sinds de planning is gemaakt (spelers, inschrijvingen of instellingen). Plan opnieuw; gespeelde wedstrijden blijven staan.</span><button class="knop primair" type="button" data-actie="plan">Opnieuw plannen</button></div>`;
+  if (k === 'spelen' && !stapKlaar('planning')) return naar('planning', !S.planning ? 'Er is nog geen planning. Maak eerst een planning.' : planningActueel() && !pastInTijd() ? 'De planning past niet binnen de ingestelde tijden.' : 'De planning is verouderd door een wijziging. Plan eerst opnieuw.');
+  return '';
 }
-// boven de inhoud alleen de knop om door te gaan (met uitleg als dat nog niet kan); de tab laat zien waar je bent
-function stapBalk(k) {
-  const v = vervolg(k);
-  return v ? `<div class="voet boven">${v.hint ? `<span class="klein zacht">${esc(v.hint)}</span>` : '<span></span>'}${v.knop}</div>` : '';
-}
+// Onderaan een stap: een gewone knop naar de volgende tab (geen bevestiging)
 function voet(k) {
-  const v = vervolg(k);
-  return v ? `<div class="voet">${v.hint ? `<span class="klein zacht">${esc(v.hint)}</span>` : ''}${v.knop}</div>` : '';
+  const lijst = STAPPEN(), i = lijst.findIndex(([x]) => x === k), volgende = lijst[i + 1];
+  if (i < 0) return '';
+  if (k === 'planning' && planningActueel() && !pastInTijd() && !toernooiBezig())
+    return `<div class="voet"><span class="klein zacht">De planning past niet binnen de ingestelde tijden. Pas de tijden, de wedstrijdduur, de pauze of het aantal banen aan en plan opnieuw, of schrijf minder deelnemers in.</span></div>`;
+  if (k === 'spelen') return stapKlaar('spelen') ? '<div class="voet"><span class="klein zacht">Alle wedstrijden zijn gespeeld.</span><button class="knop primair" type="button" data-tab="stand">Naar de eindstand →</button></div>' : '';
+  if (!stapKlaar(k)) return '';
+  if (volgende) return `<div class="voet"><button class="knop" type="button" data-tab="${volgende[0]}">Volgende: ${volgende[1]} →</button></div>`;
+  return k === 'planning' ? '<div class="voet"><button class="knop" type="button" data-tab="perspeler">Overzicht per speler →</button></div>' : '';
 }
 let planModus = 'plannen';
 function render() {
@@ -900,11 +889,10 @@ function render() {
   if (anker) { const n = zichtbaar(anker.sel); if (n) { const d = n.getBoundingClientRect().top - anker.top; if (Math.abs(d) > 1) window.scrollBy(0, d); } }
 }
 function tekenen() {
-  if (tab === 'spelen' && (!S.inst.bijhouden || !stapKlaar('planning'))) tab = 'planning';
+  if (tab === 'spelen' && !S.inst.bijhouden) tab = 'planning';
   $('#stappen').innerHTML = STAPPEN().map(([k, t], i) => {
     const s = stapStatus(k);
-    const dicht = k === 'spelen' && !stapKlaar('planning');
-    return `<button type="button" data-tab="${k}" class="${s.klaar ? 'stap-klaar' : s.let ? 'stap-let' : 'stap-open'}" ${tab === k ? 'aria-current="step"' : ''} ${dicht ? 'disabled title="Eerst moet de planning kloppen"' : ''} aria-label="Stap ${i + 1}: ${t}, ${s.tekst}">
+    return `<button type="button" data-tab="${k}" class="${s.klaar ? 'stap-klaar' : s.let ? 'stap-let' : 'stap-open'}" ${tab === k ? 'aria-current="step"' : ''} aria-label="Stap ${i + 1}: ${t}, ${s.tekst}">
       <span class="vink">${VINK}</span><span><span class="stapnr">Stap ${i + 1}</span><span class="staptitel">${t}</span><span class="stapstatus">${esc(s.tekst)}</span></span></button>`;
   }).join('');
   $('#extra').innerHTML = EXTRA.map(([k, t]) => `<button type="button" data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${t}</button>`).join('');
@@ -914,7 +902,7 @@ function tekenen() {
   $('#tegels').innerHTML = S.planning && eindM <= stM ? `<p class="waarschuwing">⚠ De eindtijd (${esc(S.inst.eind)}) ligt niet na de begintijd (${esc(S.inst.start)}).</p>`
     : S.planning && em != null && em > eindM ? `<p class="waarschuwing">⚠ De planning loopt ${em - eindM} minuten uit: klaar om ${toTijd(em)}, uiterlijk ${esc(S.inst.eind)}.</p>` : '';
   const f = { spelers: rSpelers, onderdelen: rOnderdelen, planning: rPlanning, spelen: rPlanning, perspeler: rPerSpeler, stand: rStand, instellingen: rInstellingen }[tab] || rSpelers;
-  $('#inhoud').innerHTML = stapBalk(tab) + f() + voet(tab);
+  $('#inhoud').innerHTML = tab === 'spelen' && !stapKlaar('planning') ? ontbreekt(tab) : ontbreekt(tab) + f() + voet(tab);
   const alles = document.querySelector('[data-alles]'); // half aangevinkt als een deel aanwezig is
   if (alles) { const n = aantalAanwezig(); alles.indeterminate = n > 0 && n < S.spelers.length; }
 }
@@ -1356,12 +1344,6 @@ document.addEventListener('click', e => {
       const d = t.dataset.d, sp = $(`#trioSp-${d}`).value, k = S.entries[$(`#trioK-${d}`).value];
       if (k && speler(sp) && k.leden.length === 2) { k.leden.push(sp); wijzig(); }
       break;
-    }
-    case 'bevestig': {
-      const k = t.dataset.k;
-      if (k === 'spelers' && aantalAanwezig() >= 2) { bevestig('spelers'); tab = 'onderdelen'; toast('Stap 1 voltooid'); }
-      if (k === 'onderdelen' && stapKlaar('spelers') && genoegInschrijvingen()) { bevestig('onderdelen'); tab = 'planning'; toast('Stap 2 voltooid'); }
-      afmeldId = null; wijzig(); window.scrollTo(0, 0); break;
     }
     case 'bijhoudenAan': S.inst.bijhouden = true; wijzig(); break;
     case 'kopieer': case 'kopieerAlles': {
