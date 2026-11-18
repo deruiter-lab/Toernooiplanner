@@ -951,12 +951,12 @@ function rSpelers() {
   return `${banner()}${afmeldPaneel()}${vinkMelding}
   <div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Spelers</h2><div class="rij">
       <button class="knop klein" type="button" data-actie="nieuw" ${S.spelers.length ? '' : 'disabled'}>Nieuwe speelavond of toernooi</button></div></div>
-    <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Naam, eventueel met H of D erachter" aria-label="Naam, eventueel met H of D erachter" style="flex:1;min-width:200px" autocomplete="off">
-      <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D">Dame</option></select>
+    <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Naam, h of naam, d" aria-label="Naam met ,h (heer) of ,d (dame) erachter" aria-describedby="spFout" style="flex:1;min-width:200px" autocomplete="off">
       <button class="knop primair" type="submit">Toevoegen</button></form>
+    <p class="klein zacht" id="spFout" role="status" style="margin:0">Zet ,h (heer) of ,d (dame) achter de naam, bijvoorbeeld: Jan de Vries, h</p>
     <details data-blok="bulk" ${bm || openBlokken.has('bulk') ? 'open' : ''}><summary>Meerdere spelers tegelijk invoeren</summary>
-      <div style="display:grid;gap:8px;margin-top:8px"><textarea id="bulk" rows="6" placeholder="Eén naam per regel, eventueel met H of D erachter, bijvoorbeeld:&#10;Jan de Vries H&#10;Petra Bakker, D"></textarea>
-      <div class="rij"><label class="klein" for="bulkSexe">Zonder H of D erachter:</label><select id="bulkSexe"><option value="H">Heer</option><option value="D">Dame</option></select>
+      <div style="display:grid;gap:8px;margin-top:8px"><textarea id="bulk" rows="6" placeholder="Eén naam per regel, met ,h of ,d erachter, bijvoorbeeld:&#10;Jan de Vries, h&#10;Petra Bakker, d"></textarea>
+      <div class="rij"><label class="klein" for="bulkSexe">Zonder ,h of ,d erachter:</label><select id="bulkSexe"><option value="H">Heer</option><option value="D">Dame</option></select>
         <button class="knop primair klein" type="button" data-actie="bulk">Spelers toevoegen</button><span class="klein zacht">${esc(bm)}</span></div>
       <p class="klein zacht">Bijvoorbeeld een lijst uit een app-groep. Wie al in de lijst staat, wordt op aanwezig gezet.</p></div></details>
     ${uitleg('Vink aan wie er is. Een naam of heer/dame wijzig je direct in de lijst.', 'De spelerslijst blijft bewaard. Begin je een nieuwe avond of een nieuw toernooi, klik dan op "Nieuwe speelavond of toernooi": de planning en de inschrijvingen verdwijnen, de spelers blijven, en je vinkt aan wie er is. Haal je het vinkje weg bij iemand die al is ingeschreven, dan kies je per dubbel een vervanger of laat je het koppel vervallen.')}
@@ -1375,19 +1375,20 @@ document.addEventListener('click', e => {
       break;
   }
 });
-// naam met eventueel H of D (of heer/dame/man/vrouw) erachter, bijvoorbeeld "Jan de Vries H" of "Petra Bakker (d)"
+// naam met ,h of ,d erachter (ook met spatie na de komma, hoofd- of kleine letter), bijvoorbeeld "Jan de Vries, h" of "Petra Bakker,D"
 function leesNaam(tekst, standaard) {
   let n = String(tekst || '').trim(), sexe = standaard, gevonden = false;
-  const m = n.match(/^(.*?)[\s,;:\-–]+\(?(h|d|heer|dame|man|vrouw)\)?\.?$/i);
-  if (m && m[1].trim()) { n = m[1]; sexe = /^(h|heer|man)$/i.test(m[2]) ? 'H' : 'D'; gevonden = true; }
-  return { naam: n.replace(/[\s,;:]+$/, '').trim(), sexe, gevonden };
+  const m = n.match(/^(.*?)\s*,\s?([hd])$/i);
+  if (m && m[1].trim()) { n = m[1]; sexe = m[2].toUpperCase(); gevonden = true; }
+  return { naam: n.trim(), sexe, gevonden };
 }
 document.addEventListener('submit', e => {
   if (e.target.id !== 'nieuweSpeler') return;
   e.preventDefault();
-  const sexe = $('#spSexe').value, r = leesNaam($('#spNaam').value, sexe), n = r.naam; if (!n) return;
+  const r = leesNaam($('#spNaam').value, null), n = r.naam; if (!n) return;
+  if (!r.gevonden) { const f = $('#spFout'); if (f) { f.textContent = '⚠ Zet ,h (heer) of ,d (dame) achter de naam, bijvoorbeeld: Jan de Vries, h'; f.classList.remove('zacht'); f.style.color = 'var(--waarschuwing)'; } $('#spNaam').focus(); return; }
   S.spelers.push({ id: uid('s'), naam: n, sexe: r.sexe });
-  wijzig(); toast(`${n} toegevoegd als ${r.sexe === 'H' ? 'heer' : 'dame'}`); const el = $('#spNaam'); if (el) { el.focus(); $('#spSexe').value = sexe; }
+  wijzig(); toast(`${n} toegevoegd als ${r.sexe === 'H' ? 'heer' : 'dame'}`); const el = $('#spNaam'); if (el) el.focus();
 });
 document.addEventListener('change', e => {
   const el = e.target;
