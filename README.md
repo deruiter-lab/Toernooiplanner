@@ -44,3 +44,11 @@ node build.js                              # index.html opnieuw bouwen na wijzig
 node test/controle.js                      # planning met de voorbeeldgegevens controleren
 node test/controle.js ./mijn-staat.json    # met eigen instellingen en keuzes (zelfde vorm als test/voorbeeld-staat.json)
 ```
+
+## Basistoernooiplanner (`basis/`)
+
+Losse, algemene toernooiplanner voor badminton, bedoeld voor speelavonden en kleinere toernooien: spelers invoeren, aanwezigen aanvinken, onderdelen en koppels samenstellen (ook automatisch husselen, drietallen en spelen als ander geslacht), planning maken binnen begin- en eindtijd, uitslagen invullen en de stand per poule bekijken.
+
+- Het hele programma staat in één bestand: `basis/index.html`.
+- Via GitHub Pages: `https://deruiter-lab.github.io/toernooiplanner/basis/`
+- Buiten claude.ai worden de gegevens alleen in de eigen browser bewaard (localStorage). Een andere opslag (back-up of online database) staat nog op de lijst met verbeterpunten.
