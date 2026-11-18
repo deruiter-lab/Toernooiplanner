@@ -952,7 +952,7 @@ function rSpelers() {
   <div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Spelers</h2><div class="rij">
       <button class="knop klein" type="button" data-actie="nieuw" ${S.spelers.length ? '' : 'disabled'}>Nieuwe speelavond of toernooi</button></div></div>
     <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Voor- en achternaam" aria-label="Naam" aria-describedby="spTip" style="flex:1;min-width:200px" autocomplete="off">
-      <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D">Dame</option></select>
+      <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D" ${laatsteSexe === 'D' ? 'selected' : ''}>Dame</option></select>
       <button class="knop primair" type="submit">Toevoegen</button></form>
     <p class="klein zacht" id="spTip" style="margin:0">Snel: typ ,h of ,d achter de naam (bijvoorbeeld Jan de Vries, h), dan hoef je heer of dame niet te kiezen.</p>
     <details data-blok="bulk" ${bm || openBlokken.has('bulk') ? 'open' : ''}><summary>Meerdere spelers tegelijk invoeren</summary>
@@ -1383,9 +1383,11 @@ function leesNaam(tekst, standaard) {
   if (m && m[1].trim()) { n = m[1]; sexe = m[2].toUpperCase(); gevonden = true; }
   return { naam: n.trim(), sexe, gevonden };
 }
+// het keuzeveld onthoudt de laatste keuze; ,h of ,d achter de naam zet het meteen om
+let laatsteSexe = 'H';
 document.addEventListener('input', e => {
   if (e.target.id !== 'spNaam') return;
-  const r = leesNaam(e.target.value, null); if (r.gevonden && $('#spSexe')) $('#spSexe').value = r.sexe;
+  const r = leesNaam(e.target.value, null); if (r.gevonden && $('#spSexe')) { $('#spSexe').value = r.sexe; laatsteSexe = r.sexe; }
 });
 document.addEventListener('submit', e => {
   if (e.target.id !== 'nieuweSpeler') return;
@@ -1397,6 +1399,7 @@ document.addEventListener('submit', e => {
 document.addEventListener('change', e => {
   const el = e.target;
   if (el.id === 'filter') { filterSpeler = el.value; render(); return; }
+  if (el.id === 'spSexe') { laatsteSexe = el.value; return; }
   if (el.dataset.vorm) {
     const d = el.dataset.vorm, oud = vormVan(d), nieuw = el.value; if (oud === nieuw) return;
     S.inst.vorm[d] = nieuw;
