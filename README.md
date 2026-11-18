@@ -13,6 +13,19 @@ Online via GitHub Pages: https://deruiter-lab.github.io/toernooiplanner/
 
 Een stap is pas voltooid als de stappen ervoor voltooid zijn; wijzigt er iets in een eerdere stap, dan gaan de stappen erna weer open.
 
+## Toernooivormen
+
+Per onderdeel te kiezen bij stap 2:
+
+- **Poule**: iedereen tegen iedereen, in één of meer poules.
+- **Poules met finale**: na de poules spelen de nummers 1 (of 1 en 2) halve finales en een finale.
+- **Knock-out**: wie verliest, ligt eruit; optioneel een troostronde voor de verliezers van ronde 1.
+- **Wisselende partners** (dubbelspel): elke ronde nieuwe duo's; iedereen speelt voor zichzelf en verzamelt punten.
+- **Koning van de baan**: winnaars schuiven een baan op, verliezers een baan af.
+- **Zwitsers systeem**: een vast aantal rondes, steeds tegen iemand met ongeveer dezelfde score.
+
+Wedstrijden zijn op tijd; de stand na afloop van de tijd telt. Bij knock-out en Koning van de baan beslist bij gelijke stand een extra punt. Finales, knock-outrondes en volgende rondes worden vooraf ingeroosterd en vullen zich in zodra de uitslagen binnen zijn.
+
 ## Planningsregels
 
 - Een speler staat nooit op twee banen tegelijk.
