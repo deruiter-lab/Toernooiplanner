@@ -951,9 +951,10 @@ function rSpelers() {
   return `${banner()}${afmeldPaneel()}${vinkMelding}
   <div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Spelers</h2><div class="rij">
       <button class="knop klein" type="button" data-actie="nieuw" ${S.spelers.length ? '' : 'disabled'}>Nieuwe speelavond of toernooi</button></div></div>
-    <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Naam, h of naam, d" aria-label="Naam met ,h (heer) of ,d (dame) erachter" aria-describedby="spFout" style="flex:1;min-width:200px" autocomplete="off">
+    <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Voor- en achternaam" aria-label="Naam" aria-describedby="spTip" style="flex:1;min-width:200px" autocomplete="off">
+      <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D">Dame</option></select>
       <button class="knop primair" type="submit">Toevoegen</button></form>
-    <p class="klein zacht" id="spFout" role="status" style="margin:0">Zet ,h (heer) of ,d (dame) achter de naam, bijvoorbeeld: Jan de Vries, h</p>
+    <p class="klein zacht" id="spTip" style="margin:0">Snel: typ ,h of ,d achter de naam (bijvoorbeeld Jan de Vries, h), dan hoef je heer of dame niet te kiezen.</p>
     <details data-blok="bulk" ${bm || openBlokken.has('bulk') ? 'open' : ''}><summary>Meerdere spelers tegelijk invoeren</summary>
       <div style="display:grid;gap:8px;margin-top:8px"><textarea id="bulk" rows="6" placeholder="Eén naam per regel, met ,h of ,d erachter, bijvoorbeeld:&#10;Jan de Vries, h&#10;Petra Bakker, d"></textarea>
       <div class="rij"><label class="klein" for="bulkSexe">Zonder ,h of ,d erachter:</label><select id="bulkSexe"><option value="H">Heer</option><option value="D">Dame</option></select>
@@ -1382,13 +1383,16 @@ function leesNaam(tekst, standaard) {
   if (m && m[1].trim()) { n = m[1]; sexe = m[2].toUpperCase(); gevonden = true; }
   return { naam: n.trim(), sexe, gevonden };
 }
+document.addEventListener('input', e => {
+  if (e.target.id !== 'spNaam') return;
+  const r = leesNaam(e.target.value, null); if (r.gevonden && $('#spSexe')) $('#spSexe').value = r.sexe;
+});
 document.addEventListener('submit', e => {
   if (e.target.id !== 'nieuweSpeler') return;
   e.preventDefault();
-  const r = leesNaam($('#spNaam').value, null), n = r.naam; if (!n) return;
-  if (!r.gevonden) { const f = $('#spFout'); if (f) { f.textContent = '⚠ Zet ,h (heer) of ,d (dame) achter de naam, bijvoorbeeld: Jan de Vries, h'; f.classList.remove('zacht'); f.style.color = 'var(--waarschuwing)'; } $('#spNaam').focus(); return; }
+  const sexe = $('#spSexe').value, r = leesNaam($('#spNaam').value, sexe), n = r.naam; if (!n) return;
   S.spelers.push({ id: uid('s'), naam: n, sexe: r.sexe });
-  wijzig(); toast(`${n} toegevoegd als ${r.sexe === 'H' ? 'heer' : 'dame'}`); const el = $('#spNaam'); if (el) el.focus();
+  wijzig(); toast(`${n} toegevoegd als ${r.sexe === 'H' ? 'heer' : 'dame'}`); const el = $('#spNaam'); if (el) { el.focus(); $('#spSexe').value = sexe; }
 });
 document.addEventListener('change', e => {
   const el = e.target;
