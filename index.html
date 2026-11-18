@@ -1474,8 +1474,15 @@ document.addEventListener('change', e => {
     const k = el.dataset.inst;
     let v = el.type === 'checkbox' ? el.checked : el.dataset.bool ? el.value === '1' : el.type === 'number' ? Number(el.value) : el.value;
     if (el.type === 'number') { if (!Number.isFinite(v)) return; v = Math.max(Number(el.min), Math.round(v)); if (el.max !== '') v = Math.min(Number(el.max), v); }
-    S.inst[k] = v; wijzig();
+    S.inst[k] = v;
+    // Tijdkiezer: niet opnieuw tekenen terwijl de kiezer open staat, anders sluit hij meteen. Pas bijwerken bij verlaten van het veld.
+    if (el.type === 'time') { bewaar(); el.dataset.gewijzigd = '1'; return; }
+    wijzig();
   }
+});
+document.addEventListener('focusout', e => {
+  const el = e.target;
+  if (el && el.type === 'time' && el.dataset.gewijzigd) { delete el.dataset.gewijzigd; laatsteDoel = el; render(); }
 });
 
 // ---------- start ----------
