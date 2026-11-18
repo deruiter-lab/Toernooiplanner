@@ -278,6 +278,8 @@ main { padding-top: 10px; }
   nav.stappen .stapstatus { font-size: 10.5px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .voet.boven { padding: 10px; }
 }
+/* iPhone zoomt in bij invoervelden kleiner dan 16px: op telefoons en tablets daarom altijd minstens 16px */
+@media (max-width: 640px), (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
 </style>
 </head>
 <body>
