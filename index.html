@@ -887,7 +887,7 @@ function voet(k) {
   if (i < 0) return '';
   if (k === 'planning' && planningActueel() && !pastInTijd() && !toernooiBezig())
     return `<div class="voet"><span class="klein zacht">De planning past niet binnen de ingestelde tijden. Pas de tijden, de wedstrijdduur, de pauze of het aantal banen aan en plan opnieuw, of schrijf minder deelnemers in.</span></div>`;
-  if (k === 'spelen') return stapKlaar('spelen') ? '<div class="voet"><span class="klein zacht">Alle wedstrijden zijn gespeeld.</span><button class="knop primair" type="button" data-tab="stand">Naar de eindstand →</button></div>' : '';
+  if (k === 'spelen') return stapKlaar('spelen') ? '<div class="voet"><span class="klein zacht">Alle wedstrijden zijn gespeeld.</span><button class="knop primair" type="button" data-tab="stand">Naar de eindstand →</button></div>' : '<div class="voet"><button class="knop" type="button" data-tab="stand">Tussenstand bekijken →</button></div>';
   if (!stapKlaar(k)) return '';
   if (volgende) return `<div class="voet"><button class="knop" type="button" data-tab="${volgende[0]}">Volgende: ${volgende[1]} →</button></div>`;
   return k === 'planning' ? '<div class="voet"><button class="knop" type="button" data-tab="perspeler">Overzicht per speler →</button></div>' : '';
@@ -1230,7 +1230,7 @@ function rPlanning() {
   const pvorm = d => (S.planning.vorm || {})[d] || 'poule';
   const poules = VOLGORDE.filter(d => W.some(w => w.d === d)).map(d => !['poule', 'poulefinale'].includes(pvorm(d)) ? `<div class="rij" style="gap:6px">${chip(d)} <span class="chip">${VORMEN[pvorm(d)].naam}</span><span class="chip">${W.filter(w => w.d === d).length} wedstrijden</span></div>` : `<div class="rij" style="gap:6px">${chip(d)} ${pvorm(d) === 'poulefinale' ? '<span class="chip">met finale</span> ' : ''}${S.planning.poules[d].map((p, i) => `<span class="chip">${S.planning.poules[d].length > 1 ? 'Poule ' + 'ABCDEFGH'[i] + ': ' : ''}${p.length} ${OD[d].type === 'E' ? 'spelers' : 'koppels'}</span>`).join(' ')}</div>`).join('');
   const totaal = W.filter(w => !vervalt(w)).length;
-  if (planModus === 'spelen') return `${banner()}<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Uitslagen</h2><span class="chip ${vast >= totaal ? 'goed' : ''}">${vast} van ${totaal} gespeeld</span></div>
+  if (planModus === 'spelen') return `${banner()}<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Uitslagen</h2><span class="rij" style="gap:8px"><span class="chip ${vast >= totaal ? 'goed' : ''}">${vast} van ${totaal} gespeeld</span><button class="knop klein" type="button" data-tab="stand">${vast >= totaal ? 'Eindstand' : 'Tussenstand'} →</button></span></div>
     ${uitleg('Vul na elke wedstrijd de punten van beide kanten in.', `Na twee cijfers springt de cursor vanzelf naar het volgende lege vakje; een score van één cijfer bevestig je met Enter of Volgende. Tik je zelf op een vakje, dan blijft de cursor daar en kun je de score overtypen. Met beide scores ingevuld telt de wedstrijd als gespeeld; maak je een vakje leeg, dan is hij weer open. De stand per poule zie je bij Stand. Valt er iemand uit, meld die dan af bij stap 1: gespeelde wedstrijden blijven staan en de rest wordt opnieuw ingepland${vanaf != null ? ' (vanaf de groene lijn)' : ''}.`)}
     <div class="rij"><div class="veld" style="min-width:220px"><label for="filter">Markeer speler</label><select id="filter"><option value="">Iedereen</option>${opties}</select></div></div></div>
     <div class="schema-box"><table class="schema"><thead><tr><th>Tijd</th>${Array.from({ length: N }, (_, i) => `<th>Baan ${i + 1}</th>`).join('')}</tr></thead><tbody>${rijen}</tbody></table></div><div class="rondes-mobiel">${mobiel}</div>`;
@@ -1332,7 +1332,10 @@ function rStand() {
     return `<div class="od-kaart">${kop(d, `Koning van de baan · ${laatste < 0 ? 'nog geen ronde gespeeld' : `na ronde ${laatste + 1} van ${rmax + 1}`}`)}${klaarR && orde.length ? `<span class="chip goed">Koning van de baan: ${esc(nmE(orde[0]))}</span>` : ''}
       <ol>${orde.map((id, i) => `<li>${esc(nmE(id))} <span class="klein zacht">${i < 2 ? '· koningsbaan' : '· baan ' + (Math.floor(i / 2) + 1)}</span></li>`).join('') || '<li class="zacht">Nog geen uitslagen.</li>'}</ol></div>`;
   }).join('');
-  return `<div class="paneel"><h2>Stand</h2>${uitleg('De stand per onderdeel.', 'Volgorde: eerst het aantal gewonnen wedstrijden, dan het puntensaldo, dan het aantal gescoorde punten. Uitslagen vul je in bij de stap Uitslagen.')}</div>
+  const Wg = S.planning.wedstrijden.filter(x => !vervalt(x)), ng = Wg.filter(x => x.gespeeld).length, alles = Wg.length > 0 && ng >= Wg.length;
+  return `<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>${alles ? 'Eindstand' : 'Tussenstand'}</h2><span class="chip ${alles ? 'goed' : ''}">${ng} van ${Wg.length} gespeeld</span></div>
+    ${alles ? '' : '<p class="klein zacht" style="margin:0">Op basis van de uitslagen die tot nu toe zijn ingevuld.</p>'}
+    ${alles ? '' : '<div class="rij"><button class="knop klein" type="button" data-tab="spelen">← Verder met uitslagen</button></div>'}${uitleg('De stand per onderdeel.', 'Volgorde: eerst het aantal gewonnen wedstrijden, dan het puntensaldo, dan het aantal gescoorde punten. Uitslagen vul je in bij de stap Uitslagen.')}</div>
     <div class="onderdelen">${html || '<p class="leeg">Geen poules.</p>'}</div>`;
 }
 
