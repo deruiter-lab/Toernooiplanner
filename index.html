@@ -296,6 +296,25 @@ main { padding-top: 10px; }
 /* iPhone zoomt in bij invoervelden kleiner dan 16px: op telefoons en tablets daarom altijd minstens 16px */
 @media (max-width: 640px), (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
 .wed:has(input.score) { cursor: pointer; }
+.pouleregel { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; background: var(--vlak); border: 1px solid var(--lijn); border-radius: 12px; padding: 8px 10px; font-size: 14px; }
+.pouleregel.scheef, .iteller.scheef { border-color: var(--oranje); background: var(--oranje-zacht); }
+.pk { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.pk button { min-width: 34px; height: 32px; border: 1px solid var(--lijn); background: var(--bg); border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; color: var(--inkt); padding: 0 6px; }
+.pk button.aan { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pk button.auto { border: 2px dashed var(--accent); color: var(--accent); }
+.klein-pk button { min-width: 28px; height: 26px; font-size: 12px; }
+.deelnemer .pk { margin-left: auto; }
+.ikolommen { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.ikol { background: var(--vlak); border: 1px solid var(--lijn); border-radius: 14px; padding: 10px; display: grid; gap: 6px; align-content: start; }
+.ikop { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--display); }
+.irij { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--lijn); }
+.irij.is-auto .inaam { color: var(--zacht); font-style: italic; }
+.inaam .sx { font-size: 11px; font-weight: 700; color: var(--zacht); border: 1px solid var(--lijn); border-radius: 6px; padding: 0 4px; margin-left: 4px; font-style: normal; }
+.ilijst { display: none; }
+.ivoet { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--lijn); padding: 10px 0 4px; display: grid; gap: 8px; z-index: 5; }
+.iteller { display: flex; flex-wrap: wrap; gap: 6px 14px; border: 1px solid var(--lijn); border-radius: 10px; padding: 6px 10px; font-variant-numeric: tabular-nums; }
+.letop-blok { border-left: 5px solid var(--oranje); display: grid; gap: 6px; }
+@media (max-width: 640px) { .ikolommen { display: none; } .ilijst { display: block; } .ivoet .rij > .knop { flex: 1 1 auto; } }
 </style>
 </head>
 <body>
@@ -330,7 +349,7 @@ const toTijd = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m %
 const chip = d => `<span class="chip od od-${d}">${d}</span>`;
 
 // ---------- toestand ----------
-const leeg = () => ({ inst: kloon(STANDAARD), spelers: [], entries: {}, planning: null, stappen: {} });
+const leeg = () => ({ inst: kloon(STANDAARD), spelers: [], entries: {}, planning: null, stappen: {}, indeling: {} });
 // Standaardlijst voor wie de planner voor het eerst opent. Wijzigingen worden daarna in de eigen browser bewaard.
 const VOORBEELD = [
   ['Dave den Hartog', 'H'], ['Patrick Tukker', 'H'], ['Jos de Ruiter', 'H'], ['Mik Witte', 'H'], ['Trea van Galen', 'D'],
@@ -385,6 +404,7 @@ function laad(data) {
   const d = kloon(data);
   S = { ...leeg(), ...d, inst: { ...kloon(STANDAARD), ...(d.inst || {}) } };
   S.inst.poules = { ...kloon(STANDAARD.poules), ...((d.inst && d.inst.poules) || {}) };
+  S.indeling = d.indeling || {};
   S.inst.vorm = { ...((d.inst && d.inst.vorm) || {}) }; S.inst.vormOpt = { ...((d.inst && d.inst.vormOpt) || {}) };
   if (S.planning) S.planning.wedstrijden.forEach(w => { if (w.gespeeld && !w.score) { w.gespeeld = false; delete w.namen; delete w.zijden; } });
 }
@@ -392,7 +412,7 @@ function wijzig() { bewaar(); render(); }
 // Het scherm wordt na elke wijziging opnieuw opgebouwd. Om verspringen te voorkomen onthouden we
 // waar het aangeklikte element op het scherm stond, en zetten we het na het tekenen weer op die plek.
 let laatsteDoel = null;
-const ANKER_ATTR = ['aanwezig', 'alles', 'sexe', 'naam', 'score', 'poules', 'vorm', 'vopt', 'optnaam', 'inst', 'gespeeld', 'id', 'd', 'k', 'actie', 'weergave'];
+const ANKER_ATTR = ['aanwezig', 'alles', 'sexe', 'naam', 'score', 'poules', 'vorm', 'vopt', 'optnaam', 'inst', 'gespeeld', 'id', 'd', 'k', 'actie', 'weergave', 'indeel', 'p'];
 function ankerSelector(el) {
   if (!el || !el.dataset) return null;
   if (el.dataset.tab) return null; // navigatie springt bewust naar boven
@@ -411,14 +431,14 @@ document.addEventListener('toggle', e => { const k = e.target.dataset && e.targe
 // ---------- toernooivormen ----------
 const VORMEN = {
   poule: { naam: 'Poule', uitleg: 'Iedereen tegen iedereen, eventueel in meerdere poules.' },
-  poulefinale: { naam: 'Poules met finale', uitleg: 'Eerst poules, daarna spelen de besten van elke poule halve finales en een finale.' },
+  poulefinale: { naam: 'Poules met finale', uitleg: 'Eerst poules, daarna een finale: per poule een eigen finale, of één finale voor de besten van alle poules.' },
   knockout: { naam: 'Knock-out', uitleg: 'Wie verliest, ligt eruit. Met troostronde spelen de verliezers van de eerste ronde een eigen knock-out.' },
   wisselend: { naam: 'Wisselende partners', uitleg: 'Elke ronde nieuwe duo’s uit de deelnemers; iedereen speelt voor zichzelf en verzamelt punten.', alleenDubbel: true },
   koning: { naam: 'Koning van de baan', uitleg: 'Na elke ronde schuiven winnaars een baan op en verliezers een baan af. Op baan 1 speel je om de titel.' },
   zwitsers: { naam: 'Zwitsers systeem', uitleg: 'Een vast aantal rondes; elke ronde speel je tegen iemand met ongeveer dezelfde score.' },
 };
 const vormVan = d => ((S.inst.vorm || {})[d]) || 'poule';
-const vormOpt = d => ({ finale: 1, troost: true, rondes: 6, ...((S.inst.vormOpt || {})[d] || {}) });
+const vormOpt = d => ({ finale: 1, finaleWijze: 'perPoule', troost: true, rondes: 6, ...((S.inst.vormOpt || {})[d] || {}) });
 const alleLeden = ids => [...new Set(ids.flatMap(id => (S.entries[id] ? S.entries[id].leden : [])))];
 // uitslag: welke kant won? (bij gelijke stand nog onbeslist)
 function winnaarKant(w) { if (w.wo) return w.wo; if (!w.score) return null; return w.score[0] > w.score[1] ? 'a' : w.score[1] > w.score[0] ? 'b' : null; }
@@ -648,6 +668,94 @@ function tijdVan(slot) {
 }
 const rustBlok = () => S.inst.rust ? { van: toMin(S.inst.rustStart), tot: toMin(S.inst.rustStart) + S.inst.rustDuur } : null;
 
+
+// ---------- poules indelen op sterkte (per onderdeel) ----------
+const LETTERS = 'ABCDEFGH';
+let indeelD = null; // onderdeel waarvan het indeelscherm open staat
+const pouleKeuze = d => (S.inst.poules || {})[d] || 1;
+// zelf indelen kan bij een poulevorm met een vast aantal poules (2 of meer)
+const indelingActief = d => ['poule', 'poulefinale'].includes(vormVan(d)) && pouleKeuze(d) !== 'auto' && Number(pouleKeuze(d)) >= 2;
+const vastePoule = (e, P) => { if (!e || e.poule == null || !indelingActief(e.d)) return null; const n = P || Number(pouleKeuze(e.d)); return e.poule < n ? e.poule : null; };
+const indelingVan = (d, pid) => { const v = ((S.indeling || {})[d] || {})[pid]; return v != null && v < Number(pouleKeuze(d)) ? v : null; };
+// wie staan er in het indeelscherm: bij dubbel de aanwezigen die mee kunnen doen (niet de spelers van zelf gemaakte koppels), bij enkel de ingeschrevenen
+function indeelSpelers(d) {
+  const od = OD[d];
+  if (od.type === 'E') return actieveEntries(d).map(e => speler(e.leden[0])).filter(Boolean);
+  const inVast = new Set(actieveEntries(d).filter(e => !e.auto).flatMap(e => e.leden));
+  return S.spelers.filter(p => !p.afwezig && !inVast.has(p.id) && (od.type === 'G' || p.sexe === od.sexe || actieveEntries(d).some(e => e.auto && e.leden.includes(p.id))));
+}
+// indeling inclusief de automatisch verdeelde spelers (die nog geen letter hebben)
+function indelingPlan(d) {
+  const P = Number(pouleKeuze(d)), lijst = indeelSpelers(d).sort((a, b) => a.naam.localeCompare(b.naam));
+  const toew = new Map(), auto = new Set(), tel = Array.from({ length: P }, () => ({ H: 0, D: 0, n: 0 }));
+  lijst.forEach(p => { const v = indelingVan(d, p.id); if (v != null) { toew.set(p.id, v); tel[v][p.sexe]++; tel[v].n++; } });
+  lijst.filter(p => !toew.has(p.id)).forEach(p => {
+    let best = 0;
+    for (let i = 1; i < P; i++) { const a = tel[i], b = tel[best]; if (OD[d].type === 'G' ? (a[p.sexe] < b[p.sexe] || (a[p.sexe] === b[p.sexe] && a.n < b.n)) : a.n < b.n) best = i; }
+    toew.set(p.id, best); auto.add(p.id); tel[best][p.sexe]++; tel[best].n++;
+  });
+  return { P, lijst, toew, auto, tel };
+}
+// per poule: klopt het aantal (even bij dubbel, evenveel heren als dames bij mix)? zo niet, een voorstel om iemand te verplaatsen
+function indeelProblemen(d, plan) {
+  const od = OD[d], { P, tel, lijst, toew } = plan, uit = [], gedaan = new Set();
+  const buren = i => [...Array(P).keys()].filter(j => j !== i).sort((a, b) => Math.abs(a - i) - Math.abs(b - i) || b - a);
+  for (let i = 0; i < P; i++) {
+    if (gedaan.has(i)) continue;
+    const t = tel[i]; let sx = null, tekst = '', doel = null;
+    if (od.type === 'E') { if (t.n === 1) uit.push({ i, tekst: `Poule ${LETTERS[i]} heeft maar 1 speler.` }); continue; }
+    if (od.type === 'D' && t.n % 2) { sx = od.sexe; tekst = `Poule ${LETTERS[i]} heeft ${t.n} spelers: één te veel voor gelijke koppels.`; doel = buren(i).find(j => tel[j].n % 2); }
+    if (od.type === 'G' && t.H !== t.D) { sx = t.H > t.D ? 'H' : 'D'; const x = Math.abs(t.H - t.D); tekst = `Poule ${LETTERS[i]} heeft ${t.H} heren en ${t.D} dames: ${x} ${sx === 'H' ? (x === 1 ? 'heer' : 'heren') : (x === 1 ? 'dame' : 'dames')} te veel.`; doel = buren(i).find(j => tel[j][sx] < tel[j][ander(sx)]); }
+    if (!sx) { if (t.n && t.n < 4) uit.push({ i, tekst: `Poule ${LETTERS[i]} heeft maar ${t.n} spelers: te weinig voor twee koppels.` }); continue; }
+    if (doel == null) doel = buren(i)[0];
+    if (doel != null && (od.type === 'D' ? tel[doel].n % 2 : tel[doel][sx] < tel[doel][ander(sx)])) gedaan.add(doel);
+    const kand = lijst.filter(p => toew.get(p.id) === i && p.sexe === sx);
+    uit.push({ i, tekst, sx, doel, kand });
+  }
+  return uit;
+}
+const pouleTellerTekst = (d, t) => OD[d].type === 'G' ? `${t.H}H ${t.D}D` : `${t.n}`;
+function rIndelen(d) {
+  const od = OD[d], plan = indelingPlan(d), { P, lijst, toew, auto, tel } = plan, problemen = indeelProblemen(d, plan);
+  const knoppen = p => `<span class="pk">${[...Array(P).keys()].map(i => `<button type="button" class="${toew.get(p.id) === i ? (auto.has(p.id) ? 'auto' : 'aan') : ''}" data-indeel="${p.id}" data-p="${i}" aria-pressed="${toew.get(p.id) === i && !auto.has(p.id)}" aria-label="${esc(p.naam)} in poule ${LETTERS[i]}">${LETTERS[i]}</button>`).join('')}<button type="button" class="${auto.has(p.id) ? 'aan' : ''}" data-indeel="${p.id}" data-p="" title="Automatisch verdelen" aria-label="${esc(p.naam)} automatisch verdelen">auto</button></span>`;
+  const rij = p => `<div class="irij ${auto.has(p.id) ? 'is-auto' : ''}"><span class="inaam">${esc(p.naam)} <span class="sx">${p.sexe}</span></span>${knoppen(p)}</div>`;
+  const kolommen = [...Array(P).keys()].map(i => `<div class="ikol"><div class="ikop"><b>Poule ${LETTERS[i]}</b><span class="klein zacht">${pouleTellerTekst(d, tel[i])}</span></div>${lijst.filter(p => toew.get(p.id) === i).map(rij).join('') || '<p class="klein zacht">Nog niemand.</p>'}</div>`).join('');
+  const balk = `<div class="iteller ${problemen.some(x => x.sx) ? 'scheef' : ''}">${[...Array(P).keys()].map(i => `<span><b>${LETTERS[i]}</b> ${pouleTellerTekst(d, tel[i])}</span>`).join('')}${auto.size ? `<span class="zacht">${auto.size} auto</span>` : ''}</div>`;
+  const meldingen = problemen.map(x => x.sx && x.kand.length ? `<div class="melding letop-blok"><div>⚠ ${esc(x.tekst)}</div>
+      <div class="rij" style="gap:6px"><select id="iv-sp-${x.i}" aria-label="Speler die verschuift">${x.kand.map((p, k) => `<option value="${p.id}" ${k === x.kand.length - 1 ? 'selected' : ''}>${esc(p.naam)}</option>`).join('')}</select>
+      <span>naar</span><select id="iv-p-${x.i}" aria-label="Naar poule">${[...Array(P).keys()].filter(j => j !== x.i).map(j => `<option value="${j}" ${j === x.doel ? 'selected' : ''}>poule ${LETTERS[j]}${j < x.i ? ' (hoger)' : ' (lager)'}</option>`).join('')}</select>
+      <button class="knop klein primair" type="button" data-actie="indeelVerplaats" data-d="${d}" data-k="${x.i}">Verplaatsen</button></div>
+      <div class="klein zacht">Of laat het zo: dan speelt er in poule ${LETTERS[x.i]} iemand als ${x.sx === 'H' ? 'dame' : 'heer'} mee, of sluit iemand als derde aan bij een koppel.</div></div>`
+    : `<div class="melding letop-blok"><div>⚠ ${esc(x.tekst)}</div></div>`).join('');
+  const gespeeldAuto = actieveEntries(d).some(e => e.auto && gespeeldDoor(e.id));
+  const vast = actieveEntries(d).filter(e => !e.auto);
+  const tot = tel.reduce((a, t) => ({ H: a.H + t.H, D: a.D + t.D, n: a.n + t.n }), { H: 0, D: 0, n: 0 });
+  const totaal = od.type === 'G' && tot.H !== tot.D ? `In totaal ${tot.H} heren en ${tot.D} dames: ${Math.abs(tot.H - tot.D)} ${tot.H > tot.D ? 'heren' : 'dames'} kunnen geen gemengd koppel vormen. Kies met "Verplaatsen" in welke poule${Math.abs(tot.H - tot.D) > 1 ? 's' : ''} dat gebeurt.`
+    : od.type === 'D' && tot.n % 2 ? `In totaal ${tot.n} spelers: er blijft er één over. Kies met "Verplaatsen" in welke poule dat gebeurt.` : '';
+  return `<div class="paneel"><div class="rij" style="justify-content:space-between"><button class="knop klein" type="button" data-actie="indeelSluit">← Terug naar onderdelen</button></div>
+    <h2>${chip(d)} ${od.naam}: spelers indelen in ${P} poules</h2>
+    ${uitleg('Zet de sterkere spelers in poule A, de minder sterke in B, enzovoort.', `Tik per speler op de poule. Spelers op "auto" verdeelt de app over de poules, zodat ze ongeveer even groot worden (gestippeld). ${od.type === 'E' ? '' : 'Daarna maakt "Koppels samenstellen per poule" de koppels binnen elke poule. '}Het aantal poules stel je in op de onderdeelkaart.`)}
+    ${od.type !== 'E' && vast.length ? `<p class="klein zacht">${vast.length} zelf gemaakte koppel${vast.length === 1 ? '' : 's'} staan hier niet bij; die deel je in bij het koppel zelf op de onderdeelkaart.</p>` : ''}
+    ${lijst.length ? '' : `<p class="leeg">${od.type === 'E' ? 'Schrijf eerst spelers in bij dit onderdeel.' : 'Er zijn geen aanwezige spelers voor dit onderdeel.'}</p>`}
+    <div class="ikolommen">${kolommen}</div>
+    <div class="ilijst">${lijst.map(rij).join('')}</div>
+    ${totaal && meldingen ? `<p class="klein">${esc(totaal)}</p>` : ''}${meldingen}
+    <div class="ivoet">${balk}<div class="rij" style="gap:8px;justify-content:flex-end"><button class="knop klein" type="button" data-actie="indeelAuto" data-d="${d}">Iedereen op auto</button>
+      <button class="knop primair" type="button" data-actie="indeelKlaar" data-d="${d}" ${!lijst.length || gespeeldAuto ? 'disabled' : ''}>${od.type === 'E' ? 'Indeling toepassen' : 'Koppels samenstellen per poule'}</button></div>
+      ${gespeeldAuto ? '<p class="klein zacht">Kan niet meer opnieuw: er zijn al wedstrijden van de samengestelde koppels gespeeld.</p>' : ''}</div></div>`;
+}
+// indeling toepassen: koppels per poule maken (dubbel) of de spelers vastzetten (enkel)
+function indeelKlaar(d) {
+  const od = OD[d], plan = indelingPlan(d);
+  S.indeling[d] = S.indeling[d] || {};
+  plan.toew.forEach((v, pid) => { S.indeling[d][pid] = v; });
+  if (od.type === 'E') { actieveEntries(d).forEach(e => { const v = plan.toew.get(e.leden[0]); if (v != null) e.poule = v; }); return; }
+  const auto = actieveEntries(d).filter(e => e.auto);
+  if (auto.some(e => gespeeldDoor(e.id))) return;
+  auto.forEach(e => { if (inGebruik(e.id)) e.weg = true; else delete S.entries[e.id]; });
+  actieveEntries(d).filter(e => e.poule == null).forEach(e => { const v = indelingVan(d, e.leden[0]); if (v != null) e.poule = v; });
+  for (let i = 0; i < plan.P; i++) samenstellen(d, new Set([...plan.toew].filter(([, v]) => v === i).map(([pid]) => pid)), i);
+}
 function verdeelPoules(d, behoud) {
   const ids = actieveEntries(d).map(e => e.id);
   if (ids.length < 2) return [];
@@ -655,6 +763,17 @@ function verdeelPoules(d, behoud) {
   const keuze = (S.inst.poules || {})[d] || 1, auto = keuze === 'auto';
   // gewenst aantal poules: vast gekozen (elke poule minstens 2), of automatisch op de maximale poulegrootte
   const P = auto ? Math.ceil(ids.length / max) : Math.max(1, Math.min(Number(keuze), Math.floor(ids.length / 2)));
+  // vaste poules (zelf ingedeeld): eerst die koppels op hun plek, de rest vult aan tot de poules even groot zijn
+  if (!auto && P > 1 && actieveEntries(d).some(e => vastePoule(e, P) != null)) {
+    const poules = Array.from({ length: P }, () => []), los = [];
+    actieveEntries(d).forEach(e => { const v = vastePoule(e, P); if (v != null) poules[v].push(e.id); else los.push(e.id); });
+    const vorige = id => { const i = behoud ? behoud.findIndex(p => p.includes(id)) : -1; return i >= 0 && i < P ? i : null; };
+    los.sort((a, b) => (vorige(a) == null) - (vorige(b) == null)).forEach(id => {
+      const kleinste = poules.reduce((m, p, i) => (p.length < poules[m].length ? i : m), 0), v = vorige(id);
+      poules[v != null && poules[v].length <= poules[kleinste].length ? v : kleinste].push(id);
+    });
+    return poules;
+  }
   if (behoud && !auto && behoud.filter(p => p.some(id => ids.includes(id))).length !== P) behoud = null;
   let poules;
   if (behoud && behoud.length) {
@@ -787,7 +906,14 @@ function maakPlanning(opnieuwIndelen) {
           open.push({ id: uid('w'), d, poule: `${d}-${pi}`, fase: 'poule', label, ronde: ri, a, b, spelers: [...ea.leden, ...eb.leden], gespeeld: false });
         }));
       });
-      if (vorm === 'poulefinale') {
+      if (vorm === 'poulefinale' && (poules[d].length === 1 || vormOpt(d).finaleWijze !== 'samen')) {
+        // per poule een eigen finale (nummers 1 en 2), of halve finales met de nummers 1 t/m 4
+        const door = Number(vormOpt(d).finale) === 2 ? 4 : 2, meer = poules[d].length > 1;
+        poules[d].forEach((p, pi) => {
+          const bronnen = []; for (let pl = 1; pl <= Math.min(door, p.length); pl++) bronnen.push({ poule: `${d}-${pi}`, plaats: pl });
+          open.push(...bouwKO(d, bronnen, `${d}-fin${meer ? pi : ''}`, meer ? `Poule ${'ABCDEFGH'[pi]}: ` : '', spelersD).wed);
+        });
+      } else if (vorm === 'poulefinale') {
         const P = poules[d].length, door = P === 1 ? 2 : Math.min(2, Number(vormOpt(d).finale) || 1);
         const bronnen = [];
         // plaatsing: eerst alle nummers 1, dan alle nummers 2 (in omgekeerde volgorde, zodat poulegenoten elkaar pas laat treffen)
@@ -813,7 +939,7 @@ function maakPlanning(opnieuwIndelen) {
   wijzig();
 }
 function handtekening() {
-  return JSON.stringify(VOLGORDE.map(d => actieveEntries(d).map(e => e.id + ':' + e.leden.join('+')).sort()));
+  return JSON.stringify(VOLGORDE.map(d => actieveEntries(d).map(e => e.id + ':' + e.leden.join('+') + (vastePoule(e) != null ? '@' + e.poule : '')).sort()));
 }
 const verouderd = () => S.planning && S.planning.handtekening !== handtekening();
 function vervalt(w) {
@@ -1107,6 +1233,8 @@ function mogelijk(d) {
   return (inv ? H >= 1 && D >= 1 && H + D >= 4 : H >= 2 && D >= 2) ? { ok: true } : { ok: false, reden: inv ? 'Hiervoor zijn minstens 4 aanwezige spelers nodig, met minstens 1 heer en 1 dame.' : 'Hiervoor zijn minstens 2 aanwezige heren en 2 aanwezige dames nodig.' };
 }
 function rOnderdelen() {
+  if (indeelD && indelingActief(indeelD)) return banner() + rIndelen(indeelD);
+  indeelD = null;
   const kaart = d => {
     const od = OD[d]; let lijst = actieveEntries(d);
     const vrij = s => S.spelers.filter(p => !p.afwezig && (!s || p.sexe === s) && !speeltIn(p.id, d)).sort((a, b) => a.naam.localeCompare(b.naam));
@@ -1123,26 +1251,36 @@ function rOnderdelen() {
     const snel = los
       ? `<button class="knop klein" type="button" data-actie="alleE" data-d="${d}" ${vrij(od.sexe).length ? '' : 'disabled'}>Alle aanwezige ${!od.sexe ? 'spelers' : od.sexe === 'H' ? 'heren' : 'dames'} toevoegen</button>`
       : `<button class="knop klein" type="button" data-actie="samenstellen" data-d="${d}" ${(od.type === 'D' ? vrij(od.sexe).length + (S.inst.invallers ? vrij(ander(od.sexe)).length : 0) : vrij('H').length + vrij('D').length) >= 2 ? '' : 'disabled title="Er zijn geen twee vrije aanwezige spelers"'}>Koppels samenstellen uit aanwezigen</button>${auto.length ? ` <button class="knop klein" type="button" data-actie="hussel" data-d="${d}" ${autoGebruikt ? 'disabled' : ''}>Opnieuw husselen</button>${autoGebruikt ? '<span class="klein zacht">Kan niet meer: er zijn al wedstrijden van deze koppels gespeeld.</span>' : ''}` : ''}`;
+    // verdeling over de poules (zelf ingedeeld + automatisch), voor de regel in de kaart
+    const pv = (() => { if (!indelingActief(d)) return null; const vp = verdeelPoules(d, S.planning && S.planning.poules ? S.planning.poules[d] : null); const n = vp.map(p => p.length);
+      return { tekst: n.map((x, i) => `${LETTERS[i]} ${x}`).join(' · ') || '–', scheef: n.length > 1 && Math.max(...n) - Math.min(...n) > 1, waar: Object.fromEntries(vp.flatMap((p, i) => p.map(id => [id, i]))) }; })();
+    const pkKnop = e => !pv ? '' : `<span class="pk klein-pk">${[...Array(Number(pouleKeuze(d))).keys()].map(i => `<button type="button" class="${vastePoule(e) === i ? 'aan' : pv.waar[e.id] === i ? 'auto' : ''}" data-actie="koppelPoule" data-id="${e.id}" data-p="${i}" aria-label="${esc(entryNaam(e))} in poule ${LETTERS[i]}">${LETTERS[i]}</button>`).join('')}<button type="button" class="${vastePoule(e) == null ? 'aan' : ''}" data-actie="koppelPoule" data-id="${e.id}" data-p="" aria-label="${esc(entryNaam(e))} automatisch">auto</button></span>`;
+    const gemengdePoule = e => { if (!pv || e.leden.length < 2) return ''; const l = new Set(e.leden.map(x => indelingVan(d, x)).filter(x => x != null)); return l.size > 1 ? ' <span class="chip letop">spelers uit verschillende poules</span>' : ''; };
     const m = mogelijk(d);
     if (!m.ok) { // smalle regel in plaats van een hele kaart
       const oud = Object.values(S.entries).filter(e => e.d === d && !e.weg);
       return `<div class="od-regel" aria-disabled="true">${chip(d)} <b>${od.naam}</b><span>${esc(m.reden.replace('Hiervoor zijn ', 'Te weinig spelers: '))}</span>${oud.length ? `<span class="klein">(${oud.length} inschrijving${oud.length === 1 ? '' : 'en'} wacht${oud.length === 1 ? '' : 'en'})</span>` : ''}</div>`;
     }
     const vormKeuze = `<div class="vormkeuze"><label class="klein" for="vorm-${d}">Toernooivorm</label><select id="vorm-${d}" data-vorm="${d}">${Object.entries(VORMEN).filter(([, v]) => !v.alleenDubbel || od.type !== 'E').map(([k, v]) => `<option value="${k}" ${vorm === k ? 'selected' : ''}>${v.naam}</option>`).join('')}</select>
-      ${vorm === 'poulefinale' ? `<select data-vopt="${d}" data-optnaam="finale" aria-label="Wie gaat door naar de finales"><option value="1" ${String(vo.finale) === '1' ? 'selected' : ''}>Nummer 1 per poule door</option><option value="2" ${String(vo.finale) === '2' ? 'selected' : ''}>Nummers 1 en 2 door</option></select>` : ''}
+      ${vorm === 'poulefinale' ? (() => { const meer = String(pouleKeuze(d)) !== '1', perPoule = !meer || vo.finaleWijze !== 'samen';
+        return `${meer ? `<select data-vopt="${d}" data-optnaam="finaleWijze" aria-label="Soort finale"><option value="perPoule" ${perPoule ? 'selected' : ''}>Per poule een eigen finale</option><option value="samen" ${perPoule ? '' : 'selected'}>Eén finale over alle poules</option></select>` : ''}
+        <select data-vopt="${d}" data-optnaam="finale" aria-label="Wie gaat door naar de finales">${perPoule
+          ? `<option value="1" ${String(vo.finale) === '1' ? 'selected' : ''}>Finale tussen nr. 1 en 2${meer ? ' van elke poule' : ''}</option><option value="2" ${String(vo.finale) === '2' ? 'selected' : ''}>Halve finales met nr. 1 t/m 4${meer ? ' van elke poule' : ''}</option>`
+          : `<option value="1" ${String(vo.finale) === '1' ? 'selected' : ''}>Nummer 1 per poule door</option><option value="2" ${String(vo.finale) === '2' ? 'selected' : ''}>Nummers 1 en 2 door</option>`}</select>`; })() : ''}
       ${vorm === 'knockout' ? `<label class="klein" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-vopt="${d}" data-optnaam="troost" ${vo.troost ? 'checked' : ''}><span>Troostronde voor de verliezers van ronde 1</span></label>` : ''}
       ${['wisselend', 'koning', 'zwitsers'].includes(vorm) ? `<label class="klein rij" style="gap:6px">Aantal rondes <input type="number" min="1" max="30" value="${vo.rondes}" data-vopt="${d}" data-optnaam="rondes" style="width:70px"></label>` : ''}
       <p class="klein zacht">${VORMEN[vorm].uitleg}</p></div>`;
     // ingeklapt: alleen naam, toernooivorm en aantal; klik om in te stellen en in te schrijven
-    return `<details class="od-kaart od-klap" data-blok="od-${d}" ${blokOpen('od-' + d)}><summary class="od-kop"><h3>${chip(d)} ${od.naam}</h3><span class="od-samen"><span class="klein zacht">${VORMEN[vorm].naam}</span><b class="klein">${lijst.length} ${los ? (lijst.length === 1 ? 'speler' : 'spelers') : (lijst.length === 1 ? 'koppel' : 'koppels')}</b></span><span class="pijl" aria-hidden="true"></span></summary><div class="od-inhoud">
+    return `<details class="od-kaart od-klap" data-blok="od-${d}" ${blokOpen('od-' + d)}><summary class="od-kop"><h3>${chip(d)} ${od.naam}</h3><span class="od-samen"><span class="klein zacht">${VORMEN[vorm].naam}</span><b class="klein">${pv ? pv.tekst + ' · ' : ''}${lijst.length} ${los ? (lijst.length === 1 ? 'speler' : 'spelers') : (lijst.length === 1 ? 'koppel' : 'koppels')}</b></span><span class="pijl" aria-hidden="true"></span></summary><div class="od-inhoud">
       ${vormKeuze}
-      <div class="rij" style="gap:6px">${snel}</div>
-      ${vorm === 'poule' || vorm === 'poulefinale' ? `<div class="rij" style="gap:6px"><label class="klein" for="poules-${d}">Poules</label><select id="poules-${d}" data-poules="${d}">${[1, 2, 3, 4].map(n => `<option value="${n}" ${String(S.inst.poules[d]) === String(n) ? 'selected' : ''}>${n === 1 ? '1 poule (iedereen tegen iedereen)' : n + ' poules'}</option>`).join('')}<option value="auto" ${S.inst.poules[d] === 'auto' ? 'selected' : ''}>Automatisch (max ${S.inst.maxPoule} per poule)</option></select></div>` : ''}
+      ${indelingActief(d) ? '' : `<div class="rij" style="gap:6px">${snel}</div>`}
+      ${vorm === 'poule' || vorm === 'poulefinale' ? `<div class="rij" style="gap:6px"><label class="klein" for="poules-${d}">Poules</label><select id="poules-${d}" data-poules="${d}">${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}" ${String(S.inst.poules[d]) === String(n) ? 'selected' : ''}>${n === 1 ? '1 poule (iedereen tegen iedereen)' : n + ' poules'}</option>`).join('')}<option value="auto" ${S.inst.poules[d] === 'auto' ? 'selected' : ''}>Automatisch (max ${S.inst.maxPoule} per poule)</option></select></div>` : ''}
+      ${indelingActief(d) ? `<div class="pouleregel ${pv.scheef ? 'scheef' : ''}"><span><b>Poules:</b> ${pv.tekst} ${los ? 'spelers' : 'koppels'}</span><button class="knop klein primair" type="button" data-actie="indeelOpen" data-d="${d}">Spelers indelen →</button></div>` : ''}
       ${od.type !== 'E' && overH.length && lijst.length ? `<div class="over"><div><b>Nog niet ingedeeld:</b> ${overH.map(p => esc(p.naam)).join(', ')}</div>
         ${S.inst.drietallen && lijst.some(k => k.leden.length === 2) ? `<div class="rij" style="gap:6px"><select id="trioSp-${d}" aria-label="Speler">${overH.map(p => `<option value="${p.id}">${esc(p.naam)}</option>`).join('')}</select>
           <select id="trioK-${d}" aria-label="Koppel">${lijst.filter(k => k.leden.length === 2).map(k => `<option value="${k.id}">${esc(entryNaam(k))}</option>`).join('')}</select>
           <button class="knop klein" type="button" data-actie="trio" data-d="${d}">Als derde toevoegen</button></div>` : ''}</div>` : ''}
-      <div>${lijst.map(e => `<div class="deelnemer"><span>${esc(entryNaam(e))}${e.auto ? ' <span class="chip klein">gehusseld</span>' : ''}${e.leden.length > 2 ? ' <span class="chip">drietal</span>' : ''}${invallersIn(e).map(x => ` <span class="chip letop">${esc(naam(x.id))} speelt als ${alsTekst(x.als)}</span>`).join('')}</span><button class="knop klein" type="button" data-actie="uitschrijven" data-id="${e.id}" aria-label="${esc(entryNaam(e))} uitschrijven">×</button></div>`).join('') || '<p class="zacht klein">Nog niemand.</p>'}</div>
+      <div>${lijst.map(e => `<div class="deelnemer"><span>${esc(entryNaam(e))}${e.auto ? ' <span class="chip klein">gehusseld</span>' : ''}${e.leden.length > 2 ? ' <span class="chip">drietal</span>' : ''}${invallersIn(e).map(x => ` <span class="chip letop">${esc(naam(x.id))} speelt als ${alsTekst(x.als)}</span>`).join('')}${gemengdePoule(e)}</span>${pkKnop(e)}<button class="knop klein" type="button" data-actie="uitschrijven" data-id="${e.id}" aria-label="${esc(entryNaam(e))} uitschrijven">×</button></div>`).join('') || '<p class="zacht klein">Nog niemand.</p>'}</div>
       <div class="rij" style="gap:6px">${toevoegen}<button class="knop klein primair" type="button" data-actie="inschrijven" data-d="${d}">Toevoegen</button></div></div></details>`;
   };
   // per groep: mogelijke onderdelen als kaart, niet mogelijke als smalle regel eronder
@@ -1159,17 +1297,22 @@ function rOnderdelen() {
 const inGebruik = id => S.planning && S.planning.wedstrijden.some(w => w.a === id || w.b === id);
 const schudOrig = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const vrijVoor = (d, s) => S.spelers.filter(p => !p.afwezig && (!s || p.sexe === s) && !speeltIn(p.id, d));
-function nieuweEntry(d, leden, auto) { const id = uid('e'); S.entries[id] = { id, d, leden, auto: !!auto }; }
+const vrijVoorAlle = vrijVoor;
+function nieuweEntry(d, leden, auto, poule) { return nieuweEntryAlle(d, leden, auto, poule); }
+function nieuweEntryAlle(d, leden, auto, poule) { const id = uid('e'); S.entries[id] = { id, d, leden, auto: !!auto, ...(poule != null ? { poule } : {}) }; return S.entries[id]; }
 // toernooiavond: koppels ter plekke samenstellen uit de aanwezige spelers die nog niet meedoen
-function samenstellen(d) {
+// pool: alleen deze spelers (Set van ids) koppelen; pi: de poule waar de nieuwe koppels vast in komen
+function samenstellen(d, pool, pi) {
   const od = OD[d];
+  const vrijVoor = (dd, sx) => vrijVoorAlle(dd, sx).filter(p => !pool || pool.has(p.id));
+  const nieuweEntry = (dd, leden, auto) => nieuweEntryAlle(dd, leden, auto, pi);
   // wie nog in de minste onderdelen speelt, gaat voor: zo valt niemand de hele avond buiten de boot
   const aantal = p => VOLGORDE.filter(x => speeltIn(p.id, x)).length;
   const schud = l => { const s = schudOrig(l); return s.sort((a, b) => aantal(a) - aantal(b)); };
   if (od.type === 'D') {
     const l = schud(vrijVoor(d, od.sexe)); for (let i = 0; i + 1 < l.length; i += 2) nieuweEntry(d, [l[i].id, l[i + 1].id], true);
     // één over: aanvullen met iemand van het andere geslacht die dit onderdeel nog niet speelt
-    if (l.length % 2 && S.inst.invallers) { const inv = schud(vrijVoor(d, ander(od.sexe)))[0]; if (inv) nieuweEntry(d, [l[l.length - 1].id, inv.id], true); }
+    if (l.length % 2 && S.inst.invallers) { const inv = schud(vrijVoor(d, ander(od.sexe)))[0] || (pool ? schud(vrijVoorAlle(d, ander(od.sexe)).filter(p => indelingVan(d, p.id) == null))[0] : null); if (inv) nieuweEntry(d, [l[l.length - 1].id, inv.id], true); }
   } else if (od.type === 'G') {
     const h = schud(vrijVoor(d, 'H')), v = schud(vrijVoor(d, 'D')), m = Math.min(h.length, v.length);
     for (let i = 0; i < m; i++) nieuweEntry(d, [h[i].id, v[i].id], true);
@@ -1180,7 +1323,7 @@ function samenstellen(d) {
   if (S.inst.drietallen) {
     const over = od.type === 'D' ? vrijVoor(d, od.sexe) : vrijVoor(d);
     over.forEach(x => {
-      const kand = schudOrig(actieveEntries(d).filter(k => k.leden.length === 2 && drietalKan(d, [...k.leden, x.id])));
+      const kand = schudOrig(actieveEntries(d).filter(k => k.leden.length === 2 && (pi == null || k.poule === pi) && drietalKan(d, [...k.leden, x.id])));
       kand.sort((a, b) => (b.auto ? 1 : 0) - (a.auto ? 1 : 0));
       if (kand[0]) kand[0].leden.push(x.id);
     });
@@ -1249,7 +1392,8 @@ function rPlanning() {
   }).join('') || '<p class="leeg">Geen wedstrijden.</p>';
   // uitslagen als toernooidiagram: per onderdeel de speelrondes naast elkaar (poule, achtste/kwart/halve finale, finale; of ronde 1, 2, 3 …)
   const fase = w => {
-    if (w.fase === 'ko') { const troost = /^Troost/.test(w.label || ''); return { key: `ko-${troost ? 1 : 0}-${w.ronde}`, titel: (w.label || '').replace(/ \d+$/, ''), orde: [1, troost ? 1 : 0, w.ronde] }; }
+    if (w.fase === 'ko') { const troost = /^Troost/.test(w.label || ''), pf = String(w.poule || '').match(/-fin(\d+)$/), g = troost ? 99 : pf ? Number(pf[1]) + 1 : 0;
+      return { key: `ko-${g}-${w.ronde}`, titel: (w.label || '').replace(/ \d+$/, ''), orde: [1, g, w.ronde] }; }
     if (w.fase === 'ronde' || w.fase === 'wisselend') return { key: `r-${w.rondeNr}`, titel: `Ronde ${w.rondeNr + 1}`, orde: [1, 0, w.rondeNr] };
     const pn = Number(String(w.poule || '').split('-').pop()) || 0, meer = ((S.planning.poules || {})[w.d] || []).length > 1;
     return { key: 'poule-' + pn, titel: meer ? `Poule ${'ABCDEFGH'[pn]}` : 'Poulewedstrijden', orde: [0, 0, pn] };
@@ -1348,7 +1492,8 @@ function rStand() {
     const v = pvorm(d);
     if (!Wall.some(w => w.d === d)) return '';
     if (v === 'poule') return (S.planning.poules[d] || []).map((p, pi, all) => blok(d, p, pi, all.length)).join('');
-    if (v === 'poulefinale') return (S.planning.poules[d] || []).map((p, pi, all) => blok(d, p, pi, all.length)).join('') + koBlok(d, `${d}-fin`, 'Finales');
+    if (v === 'poulefinale') { const pl = S.planning.poules[d] || [];
+      return pl.map((p, pi, all) => blok(d, p, pi, all.length)).join('') + koBlok(d, `${d}-fin`, 'Finales') + pl.map((_, pi) => koBlok(d, `${d}-fin${pi}`, `Finale poule ${LETTERS[pi]}`)).join(''); }
     if (v === 'knockout') return koBlok(d, `${d}-ko`, 'Knock-out') + koBlok(d, `${d}-troost`, 'Troostronde');
     if (v === 'wisselend') { // ranglijst per speler
       const st = {}; Wall.filter(w => w.d === d && w.score).forEach(w => { const za = w.zijden ? w.zijden.a : w.ka, zb = w.zijden ? w.zijden.b : w.kb, [x, y] = w.score;
@@ -1406,8 +1551,10 @@ function rInstellingen() {
 document.addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
   const id = t.dataset.id;
+  if (t.dataset.indeel) { const d = indeelD, pid = t.dataset.indeel; if (!d) return; S.indeling[d] = S.indeling[d] || {};
+    if (t.dataset.p === '') delete S.indeling[d][pid]; else S.indeling[d][pid] = Number(t.dataset.p); wijzig(); return; }
   if (t.dataset.weergave) { weergave = t.dataset.weergave; try { localStorage.setItem('tp-weergave', weergave); } catch (x) {} render(); return; }
-  if (t.dataset.tab) { tab = t.dataset.tab; afmeldId = null; render(); window.scrollTo(0, 0); return; }
+  if (t.dataset.tab) { indeelD = null; tab = t.dataset.tab; afmeldId = null; render(); window.scrollTo(0, 0); return; }
   switch (t.dataset.actie) {
     case 'plan': {
       maakPlanning(false); tab = 'planning'; render();
@@ -1425,7 +1572,7 @@ document.addEventListener('click', e => {
     case 'allesUitNee': allesVraag = null; render(); break;
     case 'alleAanwezig': S.spelers.forEach(p => { p.afwezig = false; }); wijzig(); toast(`Iedereen aanwezig (${S.spelers.length})`); break;
     case 'nieuw':
-      if (t.dataset.zeker) { S.entries = {}; S.planning = null; S.stappen = {}; S.spelers.forEach(p => { p.afwezig = true; }); afmeldId = null; filterSpeler = ''; overzichtSpeler = ''; tab = 'spelers'; wijzig(); toast('Nieuwe speelavond: vink aan wie er is'); }
+      if (t.dataset.zeker) { S.entries = {}; S.indeling = {}; indeelD = null; S.planning = null; S.stappen = {}; S.spelers.forEach(p => { p.afwezig = true; }); afmeldId = null; filterSpeler = ''; overzichtSpeler = ''; tab = 'spelers'; wijzig(); toast('Nieuwe speelavond: vink aan wie er is'); }
       else { t.dataset.zeker = '1'; t.textContent = 'Klik nogmaals: planning en inschrijvingen wissen'; }
       break;
     case 'bulk': {
@@ -1456,6 +1603,16 @@ document.addEventListener('click', e => {
     case 'verwijder': { const p = speler(id); S.spelers = S.spelers.filter(x => x.id !== id); wijzig(); if (p) toast(`${p.naam} verwijderd`); break; }
     case 'inschrijven': inschrijven(t.dataset.d); break;
     case 'alleE': { const l = vrijVoor(t.dataset.d, OD[t.dataset.d].sexe); l.forEach(p => nieuweEntry(t.dataset.d, [p.id])); wijzig(); toast(`${l.length} speler${l.length === 1 ? '' : 's'} toegevoegd aan ${OD[t.dataset.d].naam.toLowerCase()}`); break; }
+    case 'indeelOpen': indeelD = t.dataset.d; render(); window.scrollTo(0, 0); break;
+    case 'indeelSluit': indeelD = null; render(); window.scrollTo(0, 0); break;
+    case 'indeelAuto': if (S.indeling) delete S.indeling[t.dataset.d]; wijzig(); break;
+    case 'indeelVerplaats': { const d = t.dataset.d, i = t.dataset.k, pid = ($(`#iv-sp-${i}`) || {}).value, naar = Number(($(`#iv-p-${i}`) || {}).value);
+      if (!pid || !Number.isFinite(naar)) break;
+      // eerst de huidige (ook automatische) indeling vastleggen, anders schuift de automatische verdeling het meteen weer terug
+      S.indeling[d] = S.indeling[d] || {}; indelingPlan(d).toew.forEach((v, x) => { S.indeling[d][x] = v; }); S.indeling[d][pid] = naar; wijzig(); toast(`${naam(pid)} naar poule ${LETTERS[naar]}`); break; }
+    case 'indeelKlaar': { const d = t.dataset.d; indeelKlaar(d); indeelD = null; wijzig(); window.scrollTo(0, 0);
+      toast(OD[d].type === 'E' ? 'Indeling toegepast' : `${actieveEntries(d).length} koppels samengesteld in ${pouleKeuze(d)} poules`); break; }
+    case 'koppelPoule': { const e = S.entries[id]; if (!e) break; if (t.dataset.p === '') delete e.poule; else e.poule = Number(t.dataset.p); wijzig(); break; }
     case 'samenstellen': case 'hussel': {
       const d = t.dataset.d, voor = actieveEntries(d).length;
       if (t.dataset.actie === 'hussel') hussel(d); else samenstellen(d);
@@ -1516,7 +1673,7 @@ document.addEventListener('change', e => {
   }
   if (el.dataset.vopt) {
     const d = el.dataset.vopt, k = el.dataset.optnaam; S.inst.vormOpt[d] = { ...(S.inst.vormOpt[d] || {}) };
-    S.inst.vormOpt[d][k] = el.type === 'checkbox' ? el.checked : k === 'rondes' ? Math.max(1, Math.min(30, Math.round(Number(el.value) || 1))) : Number(el.value);
+    S.inst.vormOpt[d][k] = el.type === 'checkbox' ? el.checked : k === 'finaleWijze' ? el.value : k === 'rondes' ? Math.max(1, Math.min(30, Math.round(Number(el.value) || 1))) : Number(el.value);
     wijzig(); return;
   }
   if (el.dataset.poules) { S.inst.poules[el.dataset.poules] = el.value === 'auto' ? 'auto' : Number(el.value); wijzig(); return; }

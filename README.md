@@ -18,13 +18,17 @@ Een stap is pas voltooid als de stappen ervoor voltooid zijn; wijzigt er iets in
 Per onderdeel te kiezen bij stap 2:
 
 - **Poule**: iedereen tegen iedereen, in één of meer poules.
-- **Poules met finale**: na de poules spelen de nummers 1 (of 1 en 2) halve finales en een finale.
+- **Poules met finale**: na de poules standaard per poule een eigen finale (nr. 1 tegen 2, of halve finales met nr. 1 t/m 4). Of één finale over alle poules: de nummers 1 (of 1 en 2) spelen halve finales en een finale.
 - **Knock-out**: wie verliest, ligt eruit; optioneel een troostronde voor de verliezers van ronde 1.
 - **Wisselende partners** (dubbelspel): elke ronde nieuwe duo's; iedereen speelt voor zichzelf en verzamelt punten.
 - **Koning van de baan**: winnaars schuiven een baan op, verliezers een baan af.
 - **Zwitsers systeem**: een vast aantal rondes, steeds tegen iemand met ongeveer dezelfde score.
 
 Wedstrijden zijn op tijd; de stand na afloop van de tijd telt. Bij knock-out en Koning van de baan beslist bij gelijke stand een extra punt. Finales, knock-outrondes en volgende rondes worden vooraf ingeroosterd en vullen zich in zodra de uitslagen binnen zijn.
+
+## Poules op sterkte
+
+Kies je bij een poulevorm 2 of meer poules (tot 8), dan verschijnt in de onderdeelkaart de knop **Spelers indelen**. In dat scherm zet je spelers in poule A, B, C … (sterk naar minder sterk); spelers op "auto" verdeelt de app zodat de poules even groot worden. De tellers per poule staan steeds in beeld. Klopt een poule niet (oneven bij dubbel, ongelijk heren/dames bij mix), dan stelt de app voor wie naar welke poule kan; je kunt een andere speler of poule kiezen. "Koppels samenstellen per poule" maakt de koppels binnen elke poule. Zelf gemaakte koppels deel je in met de knopjes A/B/C bij het koppel.
 
 ## Planningsregels
 
