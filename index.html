@@ -951,7 +951,7 @@ function rSpelers() {
   return `${banner()}${afmeldPaneel()}${vinkMelding}
   <div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Spelers</h2><div class="rij">
       <button class="knop klein" type="button" data-actie="nieuw" ${S.spelers.length ? '' : 'disabled'}>Nieuwe speelavond of toernooi</button></div></div>
-    <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Voor- en achternaam" aria-label="Naam" style="flex:1;min-width:200px" autocomplete="off">
+    <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Naam, eventueel met H of D erachter" aria-label="Naam, eventueel met H of D erachter" style="flex:1;min-width:200px" autocomplete="off">
       <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D">Dame</option></select>
       <button class="knop primair" type="submit">Toevoegen</button></form>
     <details data-blok="bulk" ${bm || openBlokken.has('bulk') ? 'open' : ''}><summary>Meerdere spelers tegelijk invoeren</summary>
@@ -1329,10 +1329,7 @@ document.addEventListener('click', e => {
       const regels = ($('#bulk').value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
       let nieuw = 0, terug = 0;
       regels.forEach(rg => {
-        let sexe = $('#bulkSexe').value, n = rg.replace(/^[-•*\d.)\s]+/, '');
-        const m = n.match(/^(.*?)[\s,;:\-–]+\(?(h|d|heer|dame|man|vrouw)\)?\.?$/i);
-        if (m && m[1].trim()) { n = m[1]; sexe = /^(h|heer|man)$/i.test(m[2]) ? 'H' : 'D'; }
-        n = n.replace(/[\s,;:]+$/, '').trim(); if (!n) return;
+        const { naam: n, sexe } = leesNaam(rg.replace(/^[-•*\d.)\s]+/, ''), $('#bulkSexe').value); if (!n) return;
         const bestaand = S.spelers.find(p => p.naam.toLowerCase() === n.toLowerCase());
         if (bestaand) { if (bestaand.afwezig) { bestaand.afwezig = false; terug++; } return; }
         S.spelers.push({ id: uid('s'), naam: n, sexe }); nieuw++;
@@ -1378,13 +1375,19 @@ document.addEventListener('click', e => {
       break;
   }
 });
+// naam met eventueel H of D (of heer/dame/man/vrouw) erachter, bijvoorbeeld "Jan de Vries H" of "Petra Bakker (d)"
+function leesNaam(tekst, standaard) {
+  let n = String(tekst || '').trim(), sexe = standaard, gevonden = false;
+  const m = n.match(/^(.*?)[\s,;:\-–]+\(?(h|d|heer|dame|man|vrouw)\)?\.?$/i);
+  if (m && m[1].trim()) { n = m[1]; sexe = /^(h|heer|man)$/i.test(m[2]) ? 'H' : 'D'; gevonden = true; }
+  return { naam: n.replace(/[\s,;:]+$/, '').trim(), sexe, gevonden };
+}
 document.addEventListener('submit', e => {
   if (e.target.id !== 'nieuweSpeler') return;
   e.preventDefault();
-  const n = $('#spNaam').value.trim(); if (!n) return;
-  S.spelers.push({ id: uid('s'), naam: n, sexe: $('#spSexe').value });
-  const sexe = $('#spSexe').value;
-  wijzig(); toast(`${n} toegevoegd`); const el = $('#spNaam'); if (el) { el.focus(); $('#spSexe').value = sexe; }
+  const sexe = $('#spSexe').value, r = leesNaam($('#spNaam').value, sexe), n = r.naam; if (!n) return;
+  S.spelers.push({ id: uid('s'), naam: n, sexe: r.sexe });
+  wijzig(); toast(`${n} toegevoegd als ${r.sexe === 'H' ? 'heer' : 'dame'}`); const el = $('#spNaam'); if (el) { el.focus(); $('#spSexe').value = sexe; }
 });
 document.addEventListener('change', e => {
   const el = e.target;
