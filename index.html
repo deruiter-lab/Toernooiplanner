@@ -897,9 +897,40 @@ function render() {
   const sel = laatsteDoel && document.body.contains(laatsteDoel) ? ankerSelector(laatsteDoel) : null;
   const anker = sel ? { sel, top: laatsteDoel.getBoundingClientRect().top } : null;
   laatsteDoel = null;
+  // staat de cursor in een scorevak, dan staat hij na het opnieuw tekenen weer in hetzelfde vak
+  const act = document.activeElement, scoreVak = act && act.classList && act.classList.contains('score') ? { id: act.dataset.score, kant: act.dataset.kant, waarde: act.value } : null;
   tekenen();
   if (anker) { const n = zichtbaar(anker.sel); if (n) { const d = n.getBoundingClientRect().top - anker.top; if (Math.abs(d) > 1) window.scrollBy(0, d); } }
+  if (scoreVak) { const n = zichtbaar(`input.score[data-score="${CSS.escape(scoreVak.id)}"][data-kant="${scoreVak.kant}"]`); if (n) { const bezig = n.value !== scoreVak.waarde; if (bezig) n.value = scoreVak.waarde; zetInScore(n, bezig); } }
 }
+// ---------- scores snel invullen ----------
+// bezig: er wordt in dit vak nog getypt (waarde nog niet opgeslagen), dan niet selecteren maar verder laten typen
+function zetInScore(n, bezig) {
+  n.focus({ preventScroll: true });
+  const r = n.getBoundingClientRect(); if (r.top < 80 || r.bottom > window.innerHeight - 80) n.scrollIntoView({ block: 'center' });
+  if (!bezig) { try { n.select(); } catch (e) {} }
+}
+// volgende lege scorevak na dit vak, in de volgorde op het scherm (eerst de andere kant van dezelfde wedstrijd)
+function volgendScoreVak(el) {
+  const vakken = [...document.querySelectorAll('input.score')].filter(n => n.offsetParent !== null || n.getClientRects().length);
+  const i = vakken.indexOf(el);
+  return vakken.slice(i + 1).find(n => n.value === '') || null;
+}
+function doorNaarVolgende(el) { const n = volgendScoreVak(el); if (n) zetInScore(n); else el.blur(); }
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.classList || !el.classList.contains('score')) return;
+  if (el.value.length >= 2) doorNaarVolgende(el); // 21, 15, 10 … : getal compleet, door naar het volgende vak
+});
+document.addEventListener('keydown', e => {
+  const el = e.target; if (!el.classList || !el.classList.contains('score')) return;
+  if (e.key === 'Enter') { e.preventDefault(); doorNaarVolgende(el); }
+});
+// zelf op een vak tikken: de cursor blijft daar en een bestaande score is geselecteerd om te overtypen
+document.addEventListener('focusin', e => {
+  const el = e.target; if (!el.classList || !el.classList.contains('score')) return;
+  const v = el.value; if (v === '') return;
+  setTimeout(() => { if (document.activeElement === el && el.value === v) { try { el.select(); } catch (x) {} } }, 0);
+});
 function tekenen() {
   if (tab === 'spelen' && !S.inst.bijhouden) tab = 'planning';
   $('#stappen').innerHTML = STAPPEN().map(([k, t], i) => {
@@ -1187,7 +1218,7 @@ function rPlanning() {
   const poules = VOLGORDE.filter(d => W.some(w => w.d === d)).map(d => !['poule', 'poulefinale'].includes(pvorm(d)) ? `<div class="rij" style="gap:6px">${chip(d)} <span class="chip">${VORMEN[pvorm(d)].naam}</span><span class="chip">${W.filter(w => w.d === d).length} wedstrijden</span></div>` : `<div class="rij" style="gap:6px">${chip(d)} ${pvorm(d) === 'poulefinale' ? '<span class="chip">met finale</span> ' : ''}${S.planning.poules[d].map((p, i) => `<span class="chip">${S.planning.poules[d].length > 1 ? 'Poule ' + 'ABCDEFGH'[i] + ': ' : ''}${p.length} ${OD[d].type === 'E' ? 'spelers' : 'koppels'}</span>`).join(' ')}</div>`).join('');
   const totaal = W.filter(w => !vervalt(w)).length;
   if (planModus === 'spelen') return `${banner()}<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Uitslagen</h2><span class="chip ${vast >= totaal ? 'goed' : ''}">${vast} van ${totaal} gespeeld</span></div>
-    ${uitleg('Vul na elke wedstrijd de punten van beide kanten in.', `Met beide scores ingevuld telt de wedstrijd als gespeeld; maak je een vakje leeg, dan is hij weer open. De stand per poule zie je bij Stand. Valt er iemand uit, meld die dan af bij stap 1: gespeelde wedstrijden blijven staan en de rest wordt opnieuw ingepland${vanaf != null ? ' (vanaf de groene lijn)' : ''}.`)}
+    ${uitleg('Vul na elke wedstrijd de punten van beide kanten in.', `Na twee cijfers springt de cursor vanzelf naar het volgende lege vakje; een score van één cijfer bevestig je met Enter of Volgende. Tik je zelf op een vakje, dan blijft de cursor daar en kun je de score overtypen. Met beide scores ingevuld telt de wedstrijd als gespeeld; maak je een vakje leeg, dan is hij weer open. De stand per poule zie je bij Stand. Valt er iemand uit, meld die dan af bij stap 1: gespeelde wedstrijden blijven staan en de rest wordt opnieuw ingepland${vanaf != null ? ' (vanaf de groene lijn)' : ''}.`)}
     <div class="rij"><div class="veld" style="min-width:220px"><label for="filter">Markeer speler</label><select id="filter"><option value="">Iedereen</option>${opties}</select></div></div></div>
     <div class="schema-box"><table class="schema"><thead><tr><th>Tijd</th>${Array.from({ length: N }, (_, i) => `<th>Baan ${i + 1}</th>`).join('')}</tr></thead><tbody>${rijen}</tbody></table></div><div class="rondes-mobiel">${mobiel}</div>`;
   return `${banner()}<div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Planning</h2>
@@ -1453,9 +1484,9 @@ document.addEventListener('change', e => {
     if (w.sa != null && w.sb != null) {
       w.score = [w.sa, w.sb]; w.gespeeld = true; toast(`Uitslag ${w.sa}-${w.sb} opgeslagen`);
       snapshot(w);
-      wijzig(); return;
+      bewaar(); setTimeout(render, 0); return; // na het verplaatsen van de cursor tekenen, zodat die in het nieuwe vak blijft
     }
-    if (had) { delete w.score; w.gespeeld = false; delete w.namen; delete w.zijden; wijzig(); } else bewaar();
+    if (had) { delete w.score; w.gespeeld = false; delete w.namen; delete w.zijden; bewaar(); setTimeout(render, 0); } else bewaar();
     return;
   }
   if (el.dataset.sexe) {
