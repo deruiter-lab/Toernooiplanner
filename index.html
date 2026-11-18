@@ -303,7 +303,9 @@ const OPSLAG_ONLINE = 'Automatisch opgeslagen ✓', OPSLAG_LOKAAL = 'Opgeslagen 
 let toastTimer = null;
 function toast(tekst) { const el = $('#toast'); if (!el) return; el.textContent = tekst; el.classList.add('aan'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('aan'), 2600); }
 // korte zin met een ? om de rest van de uitleg uit te klappen
-const uitleg = (kort, lang) => `<details class="uitleg"><summary><span class="vraag" aria-hidden="true">?</span><span>${kort}</span></summary><div>${lang}</div></details>`;
+const openBlokken = new Set();
+const blokOpen = key => (openBlokken.has(key) ? 'open' : '');
+const uitleg = (kort, lang) => `<details class="uitleg" data-blok="${esc(kort)}" ${blokOpen(kort)}><summary><span class="vraag" aria-hidden="true">?</span><span>${kort}</span></summary><div>${lang}</div></details>`;
 function bewaar() {
   clearTimeout(timer);
   timer = setTimeout(async () => {
@@ -320,6 +322,22 @@ function laad(data) {
   if (S.planning) S.planning.wedstrijden.forEach(w => { if (w.gespeeld && !w.score) { w.gespeeld = false; delete w.namen; delete w.zijden; } });
 }
 function wijzig() { bewaar(); render(); }
+// Het scherm wordt na elke wijziging opnieuw opgebouwd. Om verspringen te voorkomen onthouden we
+// waar het aangeklikte element op het scherm stond, en zetten we het na het tekenen weer op die plek.
+let laatsteDoel = null;
+const ANKER_ATTR = ['aanwezig', 'alles', 'sexe', 'naam', 'score', 'poules', 'inst', 'gespeeld', 'id', 'd', 'k', 'actie'];
+function ankerSelector(el) {
+  if (!el || !el.dataset) return null;
+  if (el.dataset.tab) return null; // navigatie springt bewust naar boven
+  const delen = ANKER_ATTR.filter(a => el.dataset[a] != null).map(a => `[data-${a}="${CSS.escape(el.dataset[a])}"]`);
+  if (el.dataset.kant) delen.push(`[data-kant="${CSS.escape(el.dataset.kant)}"]`);
+  if (delen.length) return delen.join('');
+  return el.id ? '#' + CSS.escape(el.id) : null;
+}
+const zichtbaar = sel => [...document.querySelectorAll(sel)].find(n => n.offsetParent !== null || n.getClientRects().length);
+document.addEventListener('click', e => { laatsteDoel = e.target.closest('button, input, select, label, summary'); if (laatsteDoel && laatsteDoel.tagName === 'LABEL') laatsteDoel = laatsteDoel.querySelector('input') || laatsteDoel; }, true);
+document.addEventListener('change', e => { laatsteDoel = e.target; }, true);
+document.addEventListener('toggle', e => { const k = e.target.dataset && e.target.dataset.blok; if (k) { if (e.target.open) openBlokken.add(k); else openBlokken.delete(k); } }, true);
 
 // ---------- planning ----------
 function roundRobin(ids) {
@@ -599,6 +617,13 @@ function voet(k) {
 }
 let planModus = 'plannen';
 function render() {
+  const sel = laatsteDoel && document.body.contains(laatsteDoel) ? ankerSelector(laatsteDoel) : null;
+  const anker = sel ? { sel, top: laatsteDoel.getBoundingClientRect().top } : null;
+  laatsteDoel = null;
+  tekenen();
+  if (anker) { const n = zichtbaar(anker.sel); if (n) { const d = n.getBoundingClientRect().top - anker.top; if (Math.abs(d) > 1) window.scrollBy(0, d); } }
+}
+function tekenen() {
   if (tab === 'spelen' && (!S.inst.bijhouden || !stapKlaar('planning'))) tab = 'planning';
   $('#stappen').innerHTML = STAPPEN().map(([k, t], i) => {
     const s = stapStatus(k);
@@ -668,7 +693,7 @@ function rSpelers() {
     <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Voor- en achternaam" aria-label="Naam" style="flex:1;min-width:200px" autocomplete="off">
       <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D">Dame</option></select>
       <button class="knop primair" type="submit">Toevoegen</button></form>
-    <details ${bm ? 'open' : ''}><summary>Meerdere spelers tegelijk invoeren</summary>
+    <details data-blok="bulk" ${bm || openBlokken.has('bulk') ? 'open' : ''}><summary>Meerdere spelers tegelijk invoeren</summary>
       <div style="display:grid;gap:8px;margin-top:8px"><textarea id="bulk" rows="6" placeholder="Eén naam per regel, eventueel met H of D erachter, bijvoorbeeld:&#10;Jan de Vries H&#10;Petra Bakker, D"></textarea>
       <div class="rij"><label class="klein" for="bulkSexe">Zonder H of D erachter:</label><select id="bulkSexe"><option value="H">Heer</option><option value="D">Dame</option></select>
         <button class="knop primair klein" type="button" data-actie="bulk">Spelers toevoegen</button><span class="klein zacht">${esc(bm)}</span></div>
