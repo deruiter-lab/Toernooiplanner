@@ -237,6 +237,8 @@ details.uitleg > div { margin: 8px 0 0 30px; max-width: 70ch; line-height: 1.5; 
 #toast::before { content: "✓ "; color: #7fe0a8; }
 @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
 .opslag-ok { color: #7fe0a8 !important; }
+label.alles { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-bottom: 2px solid var(--lijn); cursor: pointer; font-size: 15px; }
+label.alles input { width: 20px; height: 20px; }
 </style>
 </head>
 <body>
@@ -273,6 +275,7 @@ const chip = d => `<span class="chip od od-${d}">${d}</span>`;
 // ---------- toestand ----------
 const leeg = () => ({ inst: kloon(STANDAARD), spelers: [], entries: {}, planning: null, stappen: {} });
 let S = leeg();
+let allesVraag = null;
 let tab = 'spelers', filterSpeler = '', afmeldId = null, bulkMelding = '', overzichtSpeler = '';
 
 const speler = id => S.spelers.find(p => p.id === id);
@@ -614,6 +617,8 @@ function render() {
     <div class="tegel ${telaat ? 'probleem' : ''}"><b>${einde}</b><span>klaar (uiterlijk ${esc(S.inst.eind)})</span></div>`;
   const f = { spelers: rSpelers, onderdelen: rOnderdelen, planning: rPlanning, spelen: rPlanning, perspeler: rPerSpeler, stand: rStand, instellingen: rInstellingen }[tab] || rSpelers;
   $('#inhoud').innerHTML = stapBalk(tab) + f() + voet(tab);
+  const alles = document.querySelector('[data-alles]'); // half aangevinkt als een deel aanwezig is
+  if (alles) { const n = aantalAanwezig(); alles.indeterminate = n > 0 && n < S.spelers.length; }
 }
 const instKey = i => JSON.stringify([i.banen, i.maxAE, i.maxPoule, i.poules]); // duur en pauze veranderen alleen de tijden, niet de volgorde
 // tijd waarop de laatste (niet vervallen) wedstrijd klaar is, in minuten
@@ -656,10 +661,9 @@ function rSpelers() {
   const bm = bulkMelding; bulkMelding = '';
   const vinkMelding = !S.spelers.length
     ? '<div class="melding info"><div><b>Begin met de spelers.</b> Voeg hieronder de spelers toe, één voor één of als lijst in één keer. Wie je toevoegt, staat meteen op aanwezig. Met minstens twee aanwezigen ga je verder naar de onderdelen.</div></div>'
-    : n < 2 ? '<div class="melding info"><div><b>Wie is er vandaag?</b> Vink in de lijst hieronder aan wie er is, of voeg nieuwe spelers toe. Is iedereen er, gebruik dan "Iedereen aanwezig". Met minstens twee aanwezigen ga je verder naar de onderdelen.</div></div>' : '';
+    : n < 2 ? '<div class="melding info"><div><b>Wie is er vandaag?</b> Vink in de lijst hieronder aan wie er is, of voeg nieuwe spelers toe. Is iedereen er, vink dan "Alles selecteren" aan. Met minstens twee aanwezigen ga je verder naar de onderdelen.</div></div>' : '';
   return `${banner()}${afmeldPaneel()}${vinkMelding}
   <div class="paneel"><div class="rij" style="justify-content:space-between"><h2>Spelers</h2><div class="rij">
-      <button class="knop klein" type="button" data-actie="alleAanwezig" ${n === S.spelers.length ? 'disabled' : ''}>Iedereen aanwezig</button>
       <button class="knop klein" type="button" data-actie="nieuw" ${S.spelers.length ? '' : 'disabled'}>Nieuwe speelavond of toernooi</button></div></div>
     <form class="rij" id="nieuweSpeler"><input type="text" id="spNaam" placeholder="Voor- en achternaam" aria-label="Naam" style="flex:1;min-width:200px" autocomplete="off">
       <select id="spSexe" aria-label="Heer of dame"><option value="H">Heer</option><option value="D">Dame</option></select>
@@ -670,6 +674,9 @@ function rSpelers() {
         <button class="knop primair klein" type="button" data-actie="bulk">Spelers toevoegen</button><span class="klein zacht">${esc(bm)}</span></div>
       <p class="klein zacht">Bijvoorbeeld een lijst uit een app-groep. Wie al in de lijst staat, wordt op aanwezig gezet.</p></div></details>
     ${uitleg('Vink aan wie er is. Een naam of heer/dame wijzig je direct in de lijst.', 'De spelerslijst blijft bewaard. Begin je een nieuwe avond of een nieuw toernooi, klik dan op "Nieuwe speelavond of toernooi": de planning en de inschrijvingen verdwijnen, de spelers blijven, en je vinkt aan wie er is. Haal je het vinkje weg bij iemand die al is ingeschreven, dan kies je per dubbel een vervanger of laat je het koppel vervallen.')}
+    ${allesVraag ? `<div class="melding"><div><b>Iedereen op afwezig zetten?</b> ${allesVraag.n} inschrijving${allesVraag.n === 1 ? '' : 'en'} bij de onderdelen ${allesVraag.n === 1 ? 'vervalt' : 'vervallen'} dan ook.</div>
+      <div class="rij"><button class="knop primair" type="button" data-actie="allesUitOk">Ja, iedereen afwezig</button><button class="knop" type="button" data-actie="allesUitNee">Annuleren</button></div></div>` : ''}
+    ${lijst.length ? `<label class="alles"><input type="checkbox" data-alles="1" ${n === S.spelers.length ? 'checked' : ''} aria-label="Alle spelers selecteren of deselecteren"><span><b>Alles selecteren</b> <span class="zacht">· ${n} van ${S.spelers.length} aanwezig</span></span></label>` : ''}
     ${lijst.length ? `<div class="tabel-box"><table class="lijst spelerslijst"><thead><tr><th>Aanwezig</th><th>Naam</th><th>Categorie</th><th>Onderdelen</th><th></th></tr></thead><tbody>${lijst.map(rij).join('')}</tbody></table></div>` : '<p class="leeg">Nog geen spelers.</p>'}
   </div>`;
 }
@@ -973,6 +980,10 @@ document.addEventListener('click', e => {
     case 'afmelden': afmeldId = id; render(); window.scrollTo(0, 0); break;
     case 'afmeldOk': bevestigAfmelden(); break;
     case 'afmeldAnnuleer': afmeldId = null; render(); break;
+    case 'allesUitOk':
+      Object.values(S.entries).filter(e => !e.weg).forEach(e => { if (inGebruik(e.id)) e.weg = true; else delete S.entries[e.id]; });
+      S.spelers.forEach(p => { p.afwezig = true; }); allesVraag = null; afmeldId = null; wijzig(); toast('Iedereen op afwezig gezet'); break;
+    case 'allesUitNee': allesVraag = null; render(); break;
     case 'alleAanwezig': S.spelers.forEach(p => { p.afwezig = false; }); wijzig(); toast(`Iedereen aanwezig (${S.spelers.length})`); break;
     case 'nieuw':
       if (t.dataset.zeker) { S.entries = {}; S.planning = null; S.stappen = {}; S.spelers.forEach(p => { p.afwezig = true; }); afmeldId = null; filterSpeler = ''; overzichtSpeler = ''; tab = 'spelers'; wijzig(); toast('Nieuwe speelavond: vink aan wie er is'); }
@@ -1047,6 +1058,13 @@ document.addEventListener('change', e => {
   if (el.dataset.poules) { S.inst.poules[el.dataset.poules] = el.value === 'auto' ? 'auto' : Number(el.value); wijzig(); return; }
   if (el.id === 'overzichtSpeler') { overzichtSpeler = el.value; render(); return; }
   if (el.dataset.naam) { const p = speler(el.dataset.naam), n = el.value.trim(); if (p && n) p.naam = n; wijzig(); return; }
+  if (el.dataset.alles) {
+    if (el.checked) { S.spelers.forEach(p => { p.afwezig = false; }); allesVraag = null; afmeldId = null; wijzig(); toast(`Iedereen aanwezig (${S.spelers.length})`); return; }
+    // iedereen afwezig: als er al inschrijvingen zijn, eerst vragen
+    const ins = Object.values(S.entries).filter(e => !e.weg);
+    if (ins.length) { allesVraag = { n: ins.length }; render(); return; }
+    S.spelers.forEach(p => { p.afwezig = true; }); wijzig(); toast('Iedereen op afwezig gezet'); return;
+  }
   if (el.dataset.aanwezig) {
     const p = speler(el.dataset.aanwezig); if (!p) return;
     if (el.checked) { p.afwezig = false; afmeldId = null; wijzig(); return; }
