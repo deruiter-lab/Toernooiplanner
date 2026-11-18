@@ -905,9 +905,10 @@ function voet(k) {
   return k === 'planning' ? '<div class="voet"><button class="knop" type="button" data-tab="perspeler">Overzicht per speler →</button></div>' : '';
 }
 let planModus = 'plannen';
-// weergave van het uitslagenscherm: 'lijst' (onder elkaar) of 'diagram' (rondes naast elkaar); onthouden op dit apparaat
-let weergave = 'lijst';
-try { weergave = localStorage.getItem('tp-weergave') === 'diagram' ? 'diagram' : 'lijst'; } catch (e) {}
+// weergave van het uitslagenscherm: 'lijst' (onder elkaar) of 'diagram' (rondes naast elkaar).
+// Standaard: klein scherm onder elkaar, laptop of monitor naast elkaar. Een eigen keuze wordt op dit apparaat onthouden.
+let weergave = window.matchMedia && window.matchMedia('(max-width: 640px)').matches ? 'lijst' : 'diagram';
+try { const k = localStorage.getItem('tp-weergave'); if (k === 'lijst' || k === 'diagram') weergave = k; } catch (e) {}
 function render() {
   try { vulVervolg(); } catch (e) { console.error(e); }
   const sel = laatsteDoel && document.body.contains(laatsteDoel) ? ankerSelector(laatsteDoel) : null;
